@@ -2,8 +2,8 @@
     "family": "jwilliams-stockpicker-datapipeline-def",
     "networkMode": "awsvpc",
     "requiresCompatibilities": ["FARGATE"],
-    "cpu": "512",
-    "memory": "2048",
+    "cpu": "4096",
+    "memory": "8192",
     "executionRoleArn": "arn:aws:iam::461485115270:role/jwilliams-stockpicker",
     "containerDefinitions": [
       {

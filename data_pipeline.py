@@ -12,6 +12,7 @@ from setup_environment import logger, elastic_client
 import typer
 import pytz
 import re
+import sys
 
 use_small_dataset = False
 
@@ -26,45 +27,52 @@ logger = logger("data_pipeline")
 elastic_client = elastic_client()
 
 def generate_analytics_json_sp500():
-    start = time.time()
-    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    response = requests.get(url, verify=False)
-    content = response.content
-    tables = pd.read_html(content)
-    stocks_frame = tables[0]  # The first table on the page is the S&P 500 list
+    stocks_frame = None
+    try:
+        url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        response = requests.get(url, verify=False)
+        content = response.content
+        tables = pd.read_html(content)
+        stocks_frame = tables[0]  # The first table on the page is the S&P 500 list
 
-    stocks_frame = stocks_frame.rename(columns={'Symbol': 'ticker', 'Security': 'name', 'GICS Sector': 'sector', 'GICS Sub-Industry': 'industry', 'Date added':'added_to_sp500_ts', 'CIK': 'cik'})
-    stocks_frame = stocks_frame.drop(columns=['Founded','Headquarters Location', 'added_to_sp500_ts', 'cik'])
-    if use_small_dataset:
-        stocks_frame = stocks_frame.head(10)
-   
+        stocks_frame = stocks_frame.rename(columns={'Symbol': 'ticker', 'Security': 'name', 'GICS Sector': 'sector', 'GICS Sub-Industry': 'industry', 'Date added':'added_to_sp500_ts', 'CIK': 'cik'})
+        stocks_frame = stocks_frame.drop(columns=['Founded','Headquarters Location', 'added_to_sp500_ts', 'cik'])
+    except:
+        logger.error("An exception occurred web scraping from wikipedia", exc_info=True)
+    
     pandarallel.initialize(progress_bar=False)
 
-    #technicals
-    indicators = ['rsi', 'macd', 'sma']
-    timespans = ['hour', 'day', 'week']
-    for indicator in indicators:
-        for timespan in timespans:
-            stocks_frame[f'{indicator}_{timespan}'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_triple_screen_median(ticker=row.ticker.strip(), indicator=indicator, timespan=timespan), axis=1)
-    
-    logger.info("technical columns added for all tickers")
-    stocks_frame['beta'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_beta(row.ticker.strip()), axis=1)
-    logger.info("beta column added for all tickers")
+    try:
+        #technicals
+        indicators = ['rsi', 'macd', 'sma']
+        timespans = ['hour', 'day', 'week']
+        for indicator in indicators:
+            for timespan in timespans:
+                stocks_frame[f'{indicator}_{timespan}'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_triple_screen_median(ticker=row.ticker.strip(), indicator=indicator, timespan=timespan), axis=1)
+        
+        logger.info("technical columns added for all tickers")
+        stocks_frame['beta'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_beta(row.ticker.strip()), axis=1)
+        logger.info("beta column added for all tickers")
+    except:
+        logger.error("An exception occurred processing technicals data", exc_info=True)
 
-    #fundamentals
-    stocks_frame['market_cap'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_market_cap(row.ticker.strip()), axis=1)
-    logger.info("market_cap column added for all tickers")
+    try:
+        #fundamentals
+        stocks_frame['market_cap'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_market_cap(row.ticker.strip()), axis=1)
+        logger.info("market_cap column added for all tickers")
 
-    stocks_frame['dividend_yield'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_dividend_yield(row.ticker.strip()), axis=1)
-    logger.info("dividend_yield column added for all tickers")
+        stocks_frame['dividend_yield'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_dividend_yield(row.ticker.strip()), axis=1)
+        logger.info("dividend_yield column added for all tickers")
 
-    stocks_frame['pe'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_pe(row.ticker.strip()), axis=1)
-    logger.info("pe column added for all tickers")
+        stocks_frame['pe'] = stocks_frame.parallel_apply(lambda row: market_analytics.get_pe(row.ticker.strip()), axis=1)
+        logger.info("pe column added for all tickers")
+    except:
+        logger.error("An exception occurred processing fundamentals data", exc_info=True)
 
-    stocks_frame.to_json(ticker_analytics_datafile, orient='records', lines=True)
-
-    end = time.time()
-    logger.info(f'stock universe records loaded to jsonl in {end - start} seconds')
+    try:
+        stocks_frame.to_json(ticker_analytics_datafile, orient='records', lines=True)
+    except:
+        logger.error("An exception occurred writing data to jsonl", exc_info=True)
 
 def generate_watchlist_json_sp500():
     tickers = llm.generate_top_tickers(top_n=20, timestamp=formatted_date)
@@ -127,12 +135,27 @@ def ticker_watchlist():
 def ticker_watchlist_to_elastic():
     insert_jsonl_to_elastic(index_name="ticker_watchlist")
 
+def shutdown_pipeline():
+    sleep_time = 30
+    logger.info(f"Container will shutdown in {sleep_time} seconds so logs and metrics can be collected")
+    time.sleep(30)
+    sys.exit(0)
+
 @app.command()
 def all():
-    ticker_analytics()
-    ticker_analytics_to_elastic()
-    ticker_watchlist()
-    ticker_watchlist_to_elastic()
+    try:   
+        start = time.time()
+        ticker_analytics()
+        ticker_analytics_to_elastic()
+        ticker_watchlist()
+        ticker_watchlist_to_elastic()
+        end = time.time()
+        logger.info(f'Data pipeline duration: {round((end - start) / 60, 2)} minutes')
+        shutdown_pipeline()
+        
+    except Exception as e:
+         logger.error("An exception occurred", exc_info=True)
+         sys.exit(1)
 
 if __name__ == "__main__":
     app()

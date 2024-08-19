@@ -17,7 +17,7 @@ def logger(program_name: str) -> logging.Logger:
         handler.setFormatter(StdlibFormatter())
         logger.addHandler(handler)
         try:
-            file_handler = logging.FileHandler('/var/log/python_app.out.log')
+            file_handler = logging.FileHandler('./log/python_app.log')
             file_handler.setFormatter(StdlibFormatter())
             logger.addHandler(file_handler)
         except:

@@ -29,7 +29,7 @@ docker build --platform linux/amd64 -t jwilliams-stockpicker-datapipeline -f Doc
 
 ### Step #5 - Test containerized data pipeline
 ```
-docker run --hostname stockpicker-container -it jwilliams-stockpicker-datapipeline 
+docker run --hostname stockpicker-container -it --cpus="4" --memory="8g" jwilliams-stockpicker-datapipeline 
 ```
 
 ### Step #6 - Publish container
