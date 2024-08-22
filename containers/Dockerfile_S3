@@ -1,0 +1,18 @@
+FROM docker.elastic.co/logstash/logstash:8.15.0
+
+USER root
+
+COPY logstash.conf /usr/share/logstash/pipeline/logstash.conf
+COPY logstash.yml /usr/share/logstash/config/logstash.yml
+COPY entrypoint_s3.sh ./entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+# Install o11y agent
+# RUN wget https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-8.15.0-linux-x86_64.tar.gz && \
+#     tar xzvf elastic-agent-8.15.0-linux-x86_64.tar.gz && \
+#     mv elastic-agent-8.15.0-linux-x86_64 ./elastic-agent
+
+# COPY elastic-agent_s3.yml elastic-agent.yml
+
+ENTRYPOINT ["/usr/share/logstash/entrypoint.sh"]
+#ENTRYPOINT ["/bin/bash"]

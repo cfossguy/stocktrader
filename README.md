@@ -21,31 +21,23 @@ python data_pipeline.py ticker-analytics
 python data_pipeline.py ticker-watchlist
 ```
 
-### Step #4 - Build ECS image for the data pipeline
+### Step #4 - Build test containers - data pipeline and s3 listener
 ```
-poetry export -f requirements.txt --output requirements.txt --without-hashes
+cd ./containers
+build.sh
+```
+
+### Step #5 - Build ECS image and publish container to ECR
+
+```
 docker build --platform linux/amd64 -t jwilliams-stockpicker-datapipeline -f Dockerfile .
-```
-
-### Step #5 - Test containerized data pipeline
-```
-docker run --hostname stockpicker-container -it --cpus="4" --memory="8g" jwilliams-stockpicker-datapipeline 
-```
-
-### Step #6 - Publish container
-
-```
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 461485115270.dkr.ecr.us-east-2.amazonaws.com
 
 docker tag jwilliams-stockpicker-datapipeline:latest 461485115270.dkr.ecr.us-east-2.amazonaws.com/jwilliams-stockpicker-datapipeline:latest
 docker push 461485115270.dkr.ecr.us-east-2.amazonaws.com/jwilliams-stockpicker-datapipeline:latest
-
 ```
 
-#### URI
-461485115270.dkr.ecr.us-east-2.amazonaws.com/jwilliams-stockpicker-datapipeline:latest
-
-### Step #7 - Create event bridge to schedule data pipeline
+### Step #6 - Create event bridge to schedule data pipeline in Fargate
 ```
 aws ecs register-task-definition --cli-input-json fileb:///Users/jwilliams/vscode/stockpicker/task-definition.json
 
@@ -56,6 +48,34 @@ aws ecs run-task \
   --network-configuration "awsvpcConfiguration={subnets=[subnet-49862104,subnet-e7f4a58e,subnet-30dc414b],securityGroups=[sg-2a2dc242],assignPublicIp=ENABLED}"
 ```
 
+### Step #7 - Deploy Eland docker image (for deploying models from huggingface)
 ```
-aws logs tail /ecs/jwilliams-stockpicker-datapipeline --follow
+docker pull docker.elastic.co/eland/eland
+
+docker run -it --rm docker.elastic.co/eland/eland:latest \
+    eland_import_hub_model \
+      --cloud-id $ELASTIC_CLOUD_ID \
+      --es-api-key $ES_API_KEY \
+      --hub-model-id intfloat/multilingual-e5-large \
+      --task-type text_embedding
+```
+
+### Step #8 - Deploy self hosted connector (s3) - JUNK!!!
+
+```
+docker pull docker.elastic.co/enterprise-search/elastic-connectors:8.15.0.0
+
+docker run \
+  -v "/Users/jwilliams/vscode/stockpicker/connectors/config.yml:/config" \
+  --tty \
+  --rm \
+  docker.elastic.co/enterprise-search/elastic-connectors:8.15.0.0 \
+  /app/bin/elastic-ingest \
+  -c /config
+```
+
+### Step #8 - use logstash to ingest data from s3
+```
+docker build -t jwilliams-stockpicker-s3-datapipeline -f Dockerfile_S3 .
+docker run --hostname stockpicker-s3-container -it jwilliams-stockpicker-s3-datapipeline 
 ```

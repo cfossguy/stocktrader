@@ -38,10 +38,10 @@ def lookup_ticker_analytics_from_elastic(timestamp):
     body = {
         "params": {
             "timestamp": f'{timestamp}',
-            "rsi_week_gt": 30.00,
-            "rsi_week_lt": 70.00,
+            "rsi_day_gt": 30.00,
+            "rsi_day_lt": 50.00,
             "macd_week_gt": 0.00,
-            "macd_day_gt": 0.00
+            "macd_week_lt": 20.00
         }
     }
     results = elastic_client.search_template(id="ticker_analytics_template", body=body, index="ticker_analytics")
@@ -105,7 +105,7 @@ def generate_top_tickers(top_n=20, timestamp=None):
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": f"{analyze_prompt}"},
-                {"role": "assistant", "content": f"use the following analytics data as your context: {analytics_data}"},
+                {"role": "assistant", "content": f"Limit your analysis to the tickers and analytics data provided here: {analytics_data}"},
                 {"role": "user", "content": f"tickers"}
             ]
         )

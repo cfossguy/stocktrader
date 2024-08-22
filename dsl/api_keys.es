@@ -53,3 +53,28 @@ POST /_security/api_key
         }
     }
 }
+
+POST /_security/api_key
+{
+  "name": "filebeat",
+  "expiration": "60d",   
+  "role_descriptors": { 
+        "role-application": {
+        "cluster": ["all"],
+        "indices": [
+            {
+            "names": ["filebeat*"],
+            "privileges": ["read", "write", "create_index", "view_index_metadata"]
+            }
+        ]
+        }
+    },
+    "metadata": {
+        "application": "stocktrader",
+        "environment": {
+        "level": 1,
+        "trusted": true,
+        "tags": ["dev", "staging"]
+        }
+    }
+}

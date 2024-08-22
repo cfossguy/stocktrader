@@ -37,9 +37,9 @@ def llm_client() -> OpenAI:
 
 def elastic_client() -> Elasticsearch:
     ELASTIC_SEARCH_URL = os.getenv('ELASTIC_SEARCH_URL')
-    ELASTIC_SEARCH_API_KEY = os.getenv('ELASTIC_SEARCH_API_KEY')
+    ES_API_KEY = os.getenv('ES_API_KEY')
     
     elastic_client = Elasticsearch(ELASTIC_SEARCH_URL,
-                                   api_key=ELASTIC_SEARCH_API_KEY)
+                                   api_key=ES_API_KEY)
 
     return elastic_client

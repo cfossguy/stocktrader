@@ -116,23 +116,17 @@ POST _scripts/ticker_analytics_template
           "filter": [
             {
               "range": {
-                "rsi_week": {
-                  "gt": "{{rsi_week_gt}}",
-                  "lt": "{{rsi_week_lt}}"
+                "rsi_day": {
+                  "gt": "{{rsi_day_gt}}",
+                  "lt": "{{rsi_day_lt}}"
                 }
               }
             },
             {
               "range": {
                 "macd_week": {
-                  "gt": "{{macd_week_gt}}"
-                }
-              }
-            },
-            {
-              "range": {
-                "macd_day": {
-                  "gt": "{{macd_day_gt}}"
+                  "gt": "{{macd_week_gt}}",
+                  "lt": "{{macd_week_lt}}"
                 }
               }
             }

@@ -20,8 +20,8 @@ WORKDIR /app
 USER appuser
 
 # Copy function code to the container
-COPY *.py /app
-COPY .env /app
+COPY ./tmp/*.py /app
+COPY ./tmp/.env /app
 
 # Install o11y agent
 RUN wget https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-8.15.0-linux-x86_64.tar.gz && \
@@ -29,7 +29,7 @@ RUN wget https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agen
     mv elastic-agent-8.15.0-linux-x86_64 /app/elastic-agent
 
 # Install any dependencies (if required)
-COPY requirements.txt .
+COPY ./tmp/requirements.txt .
 RUN pip install --user -r requirements.txt 
 
 COPY elastic-agent.yml /app/elastic-agent
