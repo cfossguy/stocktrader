@@ -21,10 +21,10 @@ python data_pipeline.py ticker-analytics
 python data_pipeline.py ticker-watchlist
 ```
 
-### Step #4 - Build test containers - data pipeline and s3 listener
+### Step #4 - Container lifecycle management - data pipeline and s3 listener
 ```
 cd ./containers
-build.sh
+manage.py --help
 ```
 
 ### Step #5 - Build ECS image and publish container to ECR
@@ -39,7 +39,7 @@ docker push 461485115270.dkr.ecr.us-east-2.amazonaws.com/jwilliams-stockpicker-d
 
 ### Step #6 - Create event bridge to schedule data pipeline in Fargate
 ```
-aws ecs register-task-definition --cli-input-json fileb:///Users/jwilliams/vscode/stockpicker/task-definition.json
+aws ecs register-task-definition --cli-input-json fileb:///Users/jwilliams/vscode/stockpicker/containers/fargate-task-definition.json
 
 aws ecs run-task \
   --cluster jwilliams-ecs-dev \

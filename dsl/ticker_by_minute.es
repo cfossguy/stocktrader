@@ -2,6 +2,9 @@ DELETE /ticker_by_minute
 
 PUT /ticker_by_minute
 {
+  "settings": {
+      "number_of_replicas": 0
+  },
   "mappings": {
     "dynamic": "false", 
     "properties": {

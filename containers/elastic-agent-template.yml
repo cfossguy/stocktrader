@@ -1,0 +1,47 @@
+agent:
+  name: stockpicker-container
+  logging:
+    level: info
+    to_files: true
+    files:
+      path: /app/log
+      name: elastic-agent.log
+      keepfiles: 5
+      permissions: 0600
+
+outputs:
+  default:
+    type: elasticsearch
+    hosts:
+      - 'ELASTIC_HOST_GOES_HERE'
+    api_key: 'ELASTIC_API_KEY'
+    # The API key needs to be in my_api_key_id:my_api_key_string format!!!
+inputs:
+  - type: logfile
+    id: stockpicker-log-collector
+    data_stream.namespace: 'stockpicker'
+    streams:
+      - paths:
+          - /app/log/python*
+        json:
+          keys_under_root: true
+          add_error_key: true
+          message_key: message
+        processors:
+          - add_fields:
+              target: ''
+              fields:
+                type: log
+                event.dataset: 'stockpicker-datapipeline'
+
+  - type: system/metrics
+    id: system-metrics
+    streams:
+      - metricset: cpu
+      - metricset: memory
+      - metricset: network
+      - metricset: diskio
+      - metricset: load
+      - metricset: uptime
+      - metricset: process
+      - metricset: socket
