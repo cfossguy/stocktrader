@@ -112,7 +112,7 @@ venv.bak/
 
 # Elastic agent config file (has secrets)
 elastic-agent.yml
-
+fargate-task-definition.json
 # Spyder project settings
 .spyderproject
 .spyproject
