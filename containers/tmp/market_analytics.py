@@ -100,7 +100,7 @@ def get_news(ticker):
 def get_market_cap(ticker):
     market_cap_in_billion = 0
     try:
-        time.sleep(random.uniform(.01, .5)) 
+        #time.sleep(random.uniform(.01, .5)) 
         ticker_data = yf.Ticker(ticker)
         market_cap = ticker_data.info['marketCap'] 
         market_cap_in_billion = round(market_cap / 1_000_000_000, 2)
@@ -112,7 +112,7 @@ def get_market_cap(ticker):
 def get_beta(ticker):
     beta = 0
     try:
-        time.sleep(random.uniform(.01, .5)) 
+        #time.sleep(random.uniform(.01, .5)) 
         ticker_data = yf.Ticker(ticker)
         beta = round(ticker_data.info['beta'],2)
         logger.info(f'beta for {ticker} is: {beta}')
@@ -124,7 +124,7 @@ def get_beta(ticker):
 
 def get_dividend_yield(ticker):
     dividend_yield = 0
-    time.sleep(random.uniform(.01, .5))
+    #time.sleep(random.uniform(.01, .5))
     try:
         ticker_data = yf.Ticker(ticker)
         dividend_yield = round(ticker_data.info['dividendYield'] * 100,2)

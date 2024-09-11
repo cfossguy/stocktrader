@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import typer
+import time
 
 app = typer.Typer()
 
@@ -68,7 +69,8 @@ def deploy_to_fargate():
         subprocess.Popen(
             ["aws", "ecs", "register-task-definition", "--cli-input-json", f"fileb://{absolute_path}"]
         )
-
+        print("Sleeping for 3 seconds - to allow task definition to register")
+        time.sleep(3)
         subprocess.Popen(
             [
                 "aws", "ecs", "run-task",

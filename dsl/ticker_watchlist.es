@@ -81,11 +81,13 @@ PUT _ingest/pipeline/ticker_watchlist_pipeline
             ctx.market_cap = ctx.enriched_data.market_cap;
             ctx.dividend_yield = ctx.enriched_data.dividend_yield;
             ctx.pe = ctx.enriched_data.pe;
+            ctx.date = ctx.timestamp;
             ctx.remove('enriched_data');
           }
 
           // Flatten the context so it can be used for RAG queries
           def result = new ArrayList();
+          result.add('date' + ': ' + ctx.timestamp);
           result.add('name' + ': ' + ctx.name);
           result.add('sector' + ': ' + ctx.sector);
           result.add('industry' + ': ' + ctx.industry);
@@ -134,6 +136,7 @@ PUT /ticker_watchlist
                 "type": "date",
                 "format": "MM-dd-yyyy"
             },
+            "date": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
             "ticker": { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
             "overall_rank": {"type": "integer" },
             "news_summary": { "type": "text"},
