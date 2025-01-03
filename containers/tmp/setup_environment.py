@@ -6,22 +6,28 @@ import os
 from elasticsearch import Elasticsearch
 from ecs_logging import StdlibFormatter
 import logging.handlers 
+import openlit
 
 load_dotenv()
 
 def logger(program_name: str) -> logging.Logger:
     logger = logging.getLogger(program_name)
-    if not logger.hasHandlers():
-        logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler()
-        handler.setFormatter(StdlibFormatter())
-        logger.addHandler(handler)
-        try:
-            file_handler = logging.FileHandler('./log/python_app.log')
-            file_handler.setFormatter(StdlibFormatter())
-            logger.addHandler(file_handler)
-        except:
-            print("app logger permission issue. continuing without it")
+ 
+    handler = logging.StreamHandler()
+    handler.setFormatter(StdlibFormatter())
+    logger.addHandler(handler)
+   
+    #if not logger.hasHandlers():
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setFormatter(StdlibFormatter())
+    logger.addHandler(handler)
+    try:
+        file_handler = logging.FileHandler('./log/python_app.log')
+        file_handler.setFormatter(StdlibFormatter())
+        logger.addHandler(file_handler)
+    except:
+        print("app logger permission issue. continuing without it")
     
     return logger
     
@@ -43,3 +49,6 @@ def elastic_client() -> Elasticsearch:
                                    api_key=ES_API_KEY)
 
     return elastic_client
+
+def init_openlit():
+    openlit.init(application_name="stockpicker",environment="Production" )

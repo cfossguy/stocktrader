@@ -30,6 +30,7 @@ PUT /ticker_analytics
             }
           }
         },
+        "news_summary": { "type": "text"},
         "macd_day": {
           "type": "long"
         },

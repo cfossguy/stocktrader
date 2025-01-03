@@ -8,10 +8,12 @@ from dateutil.parser import parse
 import statistics
 from statistics import StatisticsError
 from setup_environment import polygon_client, logger
+import openlit
 
 polygon_client = polygon_client()
-logger = logger("market_analytics")
-    
+logger = logger("llm")
+
+@openlit.trace
 def get_triple_screen_median(ticker: str, timespan='hour', window='10', indicator='rsi'):
     # get week or day or hour rsi for each stock from poloygon.io
     allowed_timespans = ['hour', 'day', 'week']
@@ -39,7 +41,8 @@ def get_triple_screen_median(ticker: str, timespan='hour', window='10', indicato
     except StatisticsError as se:
         logger.error(f'{indicator}_{timespan} for {ticker} has error - {se}')
         return 0
-    
+
+@openlit.trace
 def get_pe(ticker):
     pe = 0
     try:
@@ -67,6 +70,7 @@ def get_pe(ticker):
         logger.error(f'PE rating for {ticker} has error - {x}. May not have 4 past quarters of financials in polygon.io')
         return pe
 
+@openlit.trace
 def get_news(ticker):
     feed_details = str()
     try:
@@ -96,11 +100,12 @@ def get_news(ticker):
         logger.error(f'News for {ticker} has error - {x}. Unknown error polygon.io')
         traceback.print_exc()
         return feed_details
-    
+
+@openlit.trace
 def get_market_cap(ticker):
     market_cap_in_billion = 0
     try:
-        #time.sleep(random.uniform(.01, .5)) 
+        time.sleep(random.uniform(.01, .5)) 
         ticker_data = yf.Ticker(ticker)
         market_cap = ticker_data.info['marketCap'] 
         market_cap_in_billion = round(market_cap / 1_000_000_000, 2)
@@ -109,10 +114,11 @@ def get_market_cap(ticker):
         logger.info(f'market cap {ticker} is: N/A')
     return market_cap_in_billion 
 
+@openlit.trace
 def get_beta(ticker):
     beta = 0
     try:
-        #time.sleep(random.uniform(.01, .5)) 
+        time.sleep(random.uniform(.01, .5)) 
         ticker_data = yf.Ticker(ticker)
         beta = round(ticker_data.info['beta'],2)
         logger.info(f'beta for {ticker} is: {beta}')
@@ -122,9 +128,10 @@ def get_beta(ticker):
         logger.info(f'beta {ticker} is: N/A because of TypeError')
     return beta
 
+@openlit.trace
 def get_dividend_yield(ticker):
     dividend_yield = 0
-    #time.sleep(random.uniform(.01, .5))
+    time.sleep(random.uniform(.01, .5))
     try:
         ticker_data = yf.Ticker(ticker)
         dividend_yield = round(ticker_data.info['dividendYield'] * 100,2)

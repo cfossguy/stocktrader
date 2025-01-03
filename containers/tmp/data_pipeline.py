@@ -8,11 +8,13 @@ from elasticsearch import helpers
 import market_analytics 
 import llm
 import glob
-from setup_environment import logger, elastic_client
+from setup_environment import elastic_client, init_openlit, logger
 import typer
 import pytz
 import re
 import sys
+import openlit
+from opentelemetry import trace
 
 use_small_dataset = False
 
@@ -23,9 +25,11 @@ ticker_analytics_datafile = f'{data_dir}/ticker_analytics-{formatted_date}.jsonl
 ticker_watchlist_datafile = f'{data_dir}/ticker_watchlist-{formatted_date}.jsonl'
 app = typer.Typer()
 
-logger = logger("data_pipeline")
 elastic_client = elastic_client()
+init_openlit()
+logger = logger("data_pipeline")
 
+@openlit.trace
 def generate_analytics_json_sp500():
     stocks_frame = None
     try:
@@ -74,6 +78,7 @@ def generate_analytics_json_sp500():
     except:
         logger.error("An exception occurred writing data to jsonl", exc_info=True)
 
+@openlit.trace
 def generate_watchlist_json_sp500():
     tickers = llm.generate_top_tickers(top_n=20, timestamp=formatted_date)
  
@@ -96,6 +101,7 @@ def parse_date_from_filename(filename: str) -> str:
     else:
         raise ValueError(f"No date found in filename: {filename}")
 
+@openlit.trace
 def insert_jsonl_to_elastic(index_name: str):
     files = glob.glob(f'{data_dir}/{index_name}*.jsonl')
     for file in files:
@@ -135,6 +141,16 @@ def ticker_watchlist():
 def ticker_watchlist_to_elastic():
     insert_jsonl_to_elastic(index_name="ticker_watchlist")
 
+@app.command()
+@openlit.trace
+def test_logger():
+    # Get a tracer and logger
+    tracer = trace.get_tracer(__name__)
+    # Example of creating a span and logging within that context
+    with tracer.start_as_current_span("example-span"):
+        logger.info("This is an info log with OpenTelemetry context")
+        logger.error("This is an error log with OpenTelemetry context")
+   
 def shutdown_pipeline():
     sleep_time = 30
     logger.info(f"Container will shutdown in {sleep_time} seconds so logs and metrics can be collected")

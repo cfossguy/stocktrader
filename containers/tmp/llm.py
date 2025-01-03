@@ -1,9 +1,9 @@
 from retrying import retry
-import requests
 import json
 import market_analytics
 from setup_environment import llm_client, elastic_client, polygon_client, logger
 from datetime import datetime, timezone
+import openlit 
 
 llm_client = llm_client()
 elastic_client = elastic_client()
@@ -21,10 +21,12 @@ retry_decorator = retry(retry_on_exception=retry_if_request_exception,
                         wait_exponential_multiplier=1000,  # Wait 2^x * 1000 milliseconds between each retry
                         wait_exponential_max=10000)  # Maximum wait time is 10 seconds
 
+@openlit.trace
 def lookup_news_from_polygon(ticker):
     news = market_analytics.get_news(ticker=ticker)
     return news
 
+@openlit.trace
 def lookup_ticker_analytics_from_elastic(timestamp):
     body = {
         "params": {
@@ -54,6 +56,7 @@ def log_token_count(response, model):
     logger.debug(f"number of output tokens {completion_tokens}")
 
 @retry_decorator
+@openlit.trace
 def generate_sentiment(ticker):
     news = lookup_news_from_polygon(ticker)
     model = "gpt-4o-mini"
@@ -79,6 +82,7 @@ def generate_sentiment(ticker):
         return "News summarization failed for ticker {ticker}."
     
 @retry_decorator
+@openlit.trace
 def generate_top_tickers(top_n=20, timestamp=None):
     
     analytics_data = lookup_ticker_analytics_from_elastic(timestamp=timestamp)

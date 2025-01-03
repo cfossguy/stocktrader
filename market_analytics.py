@@ -1,4 +1,4 @@
-import yfinance as yf
+import yfinance_cache as yfc
 import time
 import random
 from datetime import datetime, timedelta, timezone
@@ -7,13 +7,20 @@ from itertools import islice
 from dateutil.parser import parse
 import statistics
 from statistics import StatisticsError
-from setup_environment import polygon_client, logger
+import logging
+from dotenv import load_dotenv
+import os
+from polygon import RESTClient
 
-polygon_client = polygon_client()
-logger = logger("market_analytics")
-    
+load_dotenv()
+
+logger = logging.getLogger("ray")
+POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')
+
 def get_triple_screen_median(ticker: str, timespan='hour', window='10', indicator='rsi'):
     # get week or day or hour rsi for each stock from poloygon.io
+    # logger.info(f'Processing {indicator}_{timespan} for {ticker}')
+    polygon_client = RESTClient(api_key=POLYGON_API_KEY)
     allowed_timespans = ['hour', 'day', 'week']
     if timespan not in allowed_timespans:
         raise ValueError(f"Invalid timespan '{timespan}'. Allowed values are {allowed_timespans}.")
@@ -39,8 +46,9 @@ def get_triple_screen_median(ticker: str, timespan='hour', window='10', indicato
     except StatisticsError as se:
         logger.error(f'{indicator}_{timespan} for {ticker} has error - {se}')
         return 0
-    
+
 def get_pe(ticker):
+    polygon_client = RESTClient(api_key=POLYGON_API_KEY)
     pe = 0
     try:
         financials = polygon_client.vx.list_stock_financials(ticker=f'{ticker}')
@@ -68,6 +76,7 @@ def get_pe(ticker):
         return pe
 
 def get_news(ticker):
+    polygon_client = RESTClient(api_key=POLYGON_API_KEY)
     feed_details = str()
     try:
         now = datetime.now(timezone.utc)
@@ -97,42 +106,51 @@ def get_news(ticker):
         traceback.print_exc()
         return feed_details
     
+def yf_sleep():
+    time.sleep(random.uniform(0,1))
+
 def get_market_cap(ticker):
-    market_cap_in_billion = 0
     try:
-        time.sleep(random.uniform(.01, .5)) 
-        ticker_data = yf.Ticker(ticker)
+        yf_sleep()
+        ticker = ticker.replace('.', '-')
+        ticker_data = yfc.Ticker(ticker)
         market_cap = ticker_data.info['marketCap'] 
-        market_cap_in_billion = round(market_cap / 1_000_000_000, 2)
+        market_cap_in_billion = round(market_cap / 1000000000, 2)
         logger.info(f'market cap for {ticker} is: {market_cap_in_billion}')
-    except KeyError:
-        logger.info(f'market cap {ticker} is: N/A')
-    return market_cap_in_billion 
+        return market_cap_in_billion
+    except (KeyError, TypeError) as e:
+        logger.error(f'market cap {ticker} is: N/A because of {e.__class__.__name__}')
+        return None
+    except Exception as e:
+        logger.error(f'market cap {ticker} is: N/A because of {e}')
+        return None
 
 def get_beta(ticker):
-    beta = 0
     try:
-        time.sleep(random.uniform(.01, .5)) 
-        ticker_data = yf.Ticker(ticker)
+        yf_sleep()  
+        ticker = ticker.replace('.', '-')
+        ticker_data = yfc.Ticker(ticker)
         beta = round(ticker_data.info['beta'],2)
         logger.info(f'beta for {ticker} is: {beta}')
-    except KeyError:
-        logger.info(f'beta {ticker} is: N/A because of KeyError')
-    except TypeError:
-        logger.info(f'beta {ticker} is: N/A because of TypeError')
-    return beta
+        return beta
+    except (KeyError, TypeError) as e:
+        logger.error(f'beta {ticker} is: N/A because of {e.__class__.__name__}')
+        return None
+    except Exception as e:
+        logger.error(f'market cap {ticker} is: N/A because of {e}')
+        return None
 
 def get_dividend_yield(ticker):
-    dividend_yield = 0
-    time.sleep(random.uniform(.01, .5))
+    yf_sleep() 
     try:
-        ticker_data = yf.Ticker(ticker)
+        ticker = ticker.replace('.', '-')
+        ticker_data = yfc.Ticker(ticker)
         dividend_yield = round(ticker_data.info['dividendYield'] * 100,2)
         logger.info(f'dividend yield {ticker} is: {dividend_yield}')
-    except (KeyError, TypeError):
-        logger.info(f'dividend yield {ticker} is: N/A b/c of KeyError or TypeError')
-    return dividend_yield
-
-
-
-
+        return dividend_yield
+    except (KeyError, TypeError) as e:
+        logger.error(f'dividend yield {ticker} is: N/A because of {e.__class__.__name__}')
+        return None
+    except Exception as e:
+        logger.error(f'dividend yield {ticker} is: N/A because of {e}')
+        return None
