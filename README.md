@@ -9,11 +9,12 @@ poetry shell
 
 ### Step #2 - Create .env file
 
+```
 POLYGON_API_KEY = ...
 ELASTIC_SEARCH_URL = ...
 ELASTIC_SEARCH_API_KEY = ...
 OPENAI_API_KEY = ...
-
+```
 ### Step #3 - Provision Elastic Serverless Indexes + Ray
 ```
 python iac.py setup
