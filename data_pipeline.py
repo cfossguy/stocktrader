@@ -13,10 +13,13 @@ import os
 import logging
 from retrying import retry
 import shutil
+import typer
 
 load_dotenv()
 
 use_small_dataset = False
+
+app = typer.Typer()
 
 logger = logging.getLogger("ray")
 
@@ -174,10 +177,11 @@ def insert_jsonl_to_elastic(index_name: str):
             for index, line in enumerate(f):
                 doc = json.loads(line)
                 doc['timestamp'] = timestamp
+                id = f"{doc['ticker']}_{timestamp}"
                 record = {
                     "_index": index_name,
                     "_source": doc,
-                    "_id": f"{index}_{timestamp}"
+                    "_id": id
                 }
                 records.append(record)
         try:
@@ -196,9 +200,17 @@ def logging_setup_func():
     logger.addHandler(stream_handler)
 
     logger.propagate = False
-    
-if __name__ == "__main__":
-    
+
+@app.command()
+def clear_cache():
+    clear_yfinance_cache()
+
+@app.command()
+def elastic_bulk_load():
+    insert_jsonl_to_elastic("ticker_analytics")
+
+@app.command()
+def run():
     ray.init(address='auto', runtime_env={"env_vars": {
         "ELASTIC_SEARCH_URL": ELASTIC_SEARCH_URL,
         "ES_API_KEY": ES_API_KEY,
@@ -211,4 +223,7 @@ if __name__ == "__main__":
 
     ray.get(generate_analytics_json_sp500.remote())
     ray.get(insert_jsonl_to_elastic.remote("ticker_analytics"))
+    
+if __name__ == "__main__":
+    app()
    
