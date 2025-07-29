@@ -61,7 +61,7 @@ const executeCrewAIChatTool = async (): Promise<z.infer<typeof outputSchema>> =>
     // Query Elasticsearch for the latest documents
     const response = await client.search<StockPickerDoc>({
       index: 'stockpicker_agent',
-      size: 1, // Get up to 10 latest documents
+      size: 1, // Get the latest document
       track_total_hits: true,
       sort: [
         { 'date': { order: 'desc' as const } }
