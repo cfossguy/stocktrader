@@ -3,7 +3,7 @@ name = "stockpicker_agents"
 version = "0.1.0"
 description = "stockpicker-agents using crewAI"
 authors = [{ name = "Your Name", email = "you@example.com" }]
-requires-python = ">=3.10,<=3.13"
+requires-python = ">=3.12,<=3.13"
 dependencies = [
     "crewai[tools]>=0.86.0,<1.0.0",
     "elasticsearch==8.14.0"

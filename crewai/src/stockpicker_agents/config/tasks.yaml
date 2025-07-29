@@ -6,55 +6,94 @@ stock_screen:
       rsi_day_gte=30, rsi_day_lte=60, macd_week_gt=0, macd_week_lt=10
     Identify the top 10 BUY candidates based on the combined technical and fundamental signals.
   expected_output: >
-    Top 10 BUY candidates that other tasks can reference by the label top_10.
+    Top BUY candidates based on the combined technical and fundamental signals.
   agent: stock_screener
+  output_file: data/screen_report.md
 
 technical_analysis:
   description: >
-    Use stocks_owned tool to lookup existing holdings
-    Use ticker_analytics_lookup tool to analyze technical signals and news summary for stocks_owned and top_10
-    Identify stocks that should be sold from stocks_owned based on technical signals
+    Use stocks_owned tool to lookup existing holdings.
+    Use screen_report tool to lookup top BUY candidates.
+    Use ticker_analytics_lookup tool to analyze technical signals for stocks_owned. 
+    Use ticker_analytics_lookup tool to analyze technical signals for sreen_report.
+    Use ticker_analytics_lookup tool to analyze news sentiment for stocks_owned. 
+    Use ticker_analytics_lookup tool to analyze news sentiment for screen_report.
+    Identify stocks_owned that should be sold based on technical signals and news sentiment.
+    Identify stocks_owned that should be bought based on technical signals and news sentiment.
+    Identify screen_report that should be bought based on technical signals and news sentiment.
   expected_output: >
-    Top 5 SELL candidates based on technical signals for stocks in stocks_owned.
-    Top 5 BUY candidates based on technical signals.
+    Top stocks_owned SELL candidates.
+    Top stocks_owned and screen_report BUY candidates based on technical signals.
     Rationale for each BUY and SELL recommendation.
   agent: technical_analyst
-  output_file: data/technical_report.txt
+  output_file: data/technical_report.md
 
 fundamental_analysis:
   description: >
-    Use stocks_owned tool to lookup existing holdings.
-    Use ticker_analytics_lookup tool to analyze fundamental signals and news summary for stocks_owned and top_10
-    Identify stocks that should be sold from stocks_owned based on fundamental signals.
+    Use stocks_owned tool to lookup stocks_owned list.
+    Use screen_report tool to lookup top BUY candidates based on a proprietary screen.
+    Use ticker_analytics_lookup tool to analyze fundamental signals for stocks_owned. 
+    Use ticker_analytics_lookup tool to analyze fundamental signals for sreen_report.
+    Use ticker_analytics_lookup tool to analyze news sentiment for stocks_owned. 
+    Use ticker_analytics_lookup tool to analyze news sentiment for screen_report.
+    Identify stocks_owned that should be sold based on fundamental signals and news sentiment.
+    Identify stocks_owned that should be bought based on fundamental signals and news sentiment.
+    Identify screen_report that should be bought based on fundamental signals and news sentiment.
   expected_output: >
-    Top 5 SELL candidates based on fundamental signals for stocks in stocks_owned.
-    Top 5 BUY candidates based on fundamental signals.
+    Top stocks_owned SELL candidates.
+    Top stocks_owned and screen_report BUY candidates based on fundamental signals.
     Rationale for each BUY and SELL recommendation.
   agent: fundamental_analyst
-  output_file: data/fundamental_report.txt
+  output_file: data/fundamental_report.md
+
+etf_analysis:
+  description: > 
+    Use stocks_owned tool to see the current ETF holdings. 
+    Use screen_report tool to see current ETF holdings are listed.
+    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for bond ETF ticker: JPST.
+    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for technology ETF ticker: QQQ. 
+    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for SP500 ETF ticker: SPY.
+    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for Russell 2000 ETF: IWM. 
+    Identify whether VIX has noteworthy technical and news sentiment for JPST(bond ETF), QQQ(tech ETF), SPY(SP500 ETF).
+    Identify the ETFs to buy based on the technical trends news sentiment and proprietary screen.
+    Identify the ETFs to sell based on technical trends news sentiment and proprietary screen.
+    Detailed research of the technology ETF ticker: QQQ.  
+    Detailed research of the bond ETF ticker: JPST.
+    Detailed research of the for SP500 ETF ticker: SPY.
+    Detailed research of the for Russell 2000 ETF ticker: IWM.
+    Provide an opinion on what the portfolio weighting of ETFs should be based on technical trends(ex: overweight JPST when QQQ is overbought).
+  expected_output: >
+    Summarize research findings for QQQ.
+    Summarize research findings for JPST.
+    Summarize research findings for SPY.
+    Summarize research findings for IWM.
+    Summarize research findings for portfolio weighting opinion.
+  agent: etf_analyst
+  output_file: data/etf_report.md
 
 portfolio_adjustments:
   description: >
-    Use the stocks_owned tool to lookup existing holdings.
-    Use the account_details tool to lookup the current portfolio value and cash position.
+    Use stocks_owned tool to lookup stocks_owned list.
+    Use screen_report tool to lookup top BUY candidates based on a proprietary screen.
     Use the ticker_analytics_lookup tool to lookup the industry, sector, technical and fundamental signals.
     Make sure each holding is no more than 20% of the total portfolio value.
     Make sure there is industry/sector diversification.
     Recommend BUY and SELL adjustments.
   expected_output: >
-    Breakdown of portfolio percentage by company.
+    Breakdown stocks_owned portfolio percentage with one entry for each company.
     Breakdown of portfolio percantage by industry/sector.
-    Breakdown BUY and SELL adjustments
+    Breakdown BUY and SELL adjustments.
   agent: portfolio_manager
-  output_file: data/portfolio_report.txt
+  output_file: data/portfolio_report.md
 
 final_report:
   description: >
+    Use the screen_report tool to lookup top BUY candidates.
     Use the technical_report tool to lookup buy and sell candidates based on technical signals.
     Use the fundamental_report tool to lookup buy and sell candidates based on fundamental signals.
     Use the portfolio_report tool to lookup portfolio_report.
   expected_output: >
-    A final report summary in markdown (without code blocks)
+    A final report summary in markdown (without code blocks).
     Final report should have a BUY section with detailed rationale.
     Final report should have a SELL section with detailed rationale.
     Final report should have breakdown of portfolio percentage by company.
@@ -66,6 +105,8 @@ final_report:
 archive_report:
   description: >
     Archive the final report to elasticsearch using report_archive_tool.
+    Retry up to 3 times if the first attempt fails.
+    Wait 30 seconds between retries.
   expected_output: >
     Response from the report_archive_tool or Exception if failed.
   agent: report_analyst

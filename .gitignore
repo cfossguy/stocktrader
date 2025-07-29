@@ -139,3 +139,6 @@ containers/elastic-agent_s3.yml
 containers/logstash.conf
 
 s3/** 
+
+mastra/node_modules/
+mastra/.env

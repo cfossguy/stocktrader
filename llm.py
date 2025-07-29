@@ -66,7 +66,7 @@ def generate_news_summary(ticker, news=None):
                 {"role": "user", "content": f"news"}
             ]
         )
-        logger.info(f"news summarized for ticker {ticker}")
+        logger.debug(f"news summarized for ticker {ticker}")
         log_token_count(response=response, model=model)
        
         response_text = response.choices[0].message.content
@@ -74,6 +74,39 @@ def generate_news_summary(ticker, news=None):
     except Exception as e:
         logger.error(f"Exception: {e}. Failed to summarize news for ticker {ticker}")
         return f"News summarization failed for ticker {ticker}."
+    
+def generate_news_rank(ticker, news=None):
+    llm_client = OpenAI(api_key=OPENAI_API_KEY)
+    model = "gpt-4o-mini"
+    prompt = f"""1. Set a score of 0.
+                 2. Parse each statement for each article on {ticker} written in the last 3 months.
+                 3. For every positive statement increment score by 1.
+                 4. For every negative statement decrement score by 1.
+                 5. Return the final score as a number without any additional text."""
+    try:
+        response = llm_client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": f"{prompt}"},
+                {"role": "assistant", "content": f"the raw news feed data for {ticker} is: {news}"},
+                {"role": "user", "content": "Please provide a numerical score based on the provided data. Only return the number."}
+            ]
+        )
+        logger.debug(f"news ranking for ticker {ticker}")
+        log_token_count(response=response, model=model)
+       
+        response_text = response.choices[0].message.content
+        try:
+            score = int(response_text.strip())
+            if score <= 0:
+                score = 1.1754944E-38
+        except ValueError:
+            logger.debug(f"Failed to convert response to integer: {response_text}")
+            return None
+        return score
+    except Exception as e:
+        logger.debug(f"Exception: {e}. Failed to summarize news for ticker {ticker}")
+        return None
     
 # def generate_top_tickers(top_n=20):
 #     llm_client = OpenAI(api_key=OPENAI_API_KEY)

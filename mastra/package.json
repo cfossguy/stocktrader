@@ -1,0 +1,27 @@
+{
+  "name": "mastra",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "mastra dev",
+    "build": "mastra build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "mastra": "^0.10.15",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^1.3.23",
+    "@elastic/elasticsearch": "^9.0.3",
+    "@mastra/core": "^0.11.1",
+    "@mastra/mcp": "^0.10.7",
+    "zod": "^3.25.76"
+  }
+}

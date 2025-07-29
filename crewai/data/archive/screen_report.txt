@@ -1,0 +1,71 @@
+1. **Microsoft (MSFT)**
+   - Sector: Information Technology
+   - Market Cap: $3186.17 Billion
+   - RSI (Day): 53.08
+   - MACD (Week): 3.75
+   - P/E Ratio: 14.34
+
+2. **Intuit (INTU)**
+   - Sector: Information Technology
+   - Market Cap: $170.2 Billion
+   - RSI (Day): 37.17
+   - MACD (Week): 5.58
+   - P/E Ratio: 28.05
+
+3. **Workday, Inc. (WDAY)**
+   - Sector: Information Technology
+   - Market Cap: $70.54 Billion
+   - RSI (Day): 42.49
+   - MACD (Week): 4.54
+   - P/E Ratio: 22.31
+
+4. **Progressive Corporation (PGR)**
+   - Sector: Financials
+   - Market Cap: $143.54 Billion
+   - RSI (Day): 45.63
+   - MACD (Week): 7.7
+   - P/E Ratio: 10.19
+   
+5. **Dell Technologies (DELL)**
+   - Sector: Information Technology
+   - Market Cap: $71.55 Billion
+   - RSI (Day): 34.14
+   - MACD (Week): 1.14
+   - P/E Ratio: 0.0 (N/A)
+
+6. **Copart (CPRT)**
+   - Sector: Industrials
+   - Market Cap: $55.04 Billion
+   - RSI (Day): 49.42
+   - MACD (Week): 1.85
+   - P/E Ratio: 16.01
+
+7. **Carrier Global (CARR)**
+   - Sector: Industrials
+   - Market Cap: $60.79 Billion
+   - RSI (Day): 54.4
+   - MACD (Week): 1.28
+   - P/E Ratio: 17.33
+
+8. **Generac (GNRC)**
+   - Sector: Industrials
+   - Market Cap: $9.26 Billion
+   - RSI (Day): 46.97
+   - MACD (Week): 6.28
+   - P/E Ratio: 19.01
+
+9. **Procter & Gamble (PG)**
+   - Sector: Consumer Staples
+   - Market Cap: $393.92 Billion
+   - RSI (Day): 39.75
+   - MACD (Week): 1.13
+   - P/E Ratio: 14.99
+
+10. **Clorox (CLX)**
+    - Sector: Consumer Staples
+    - Market Cap: $20.25 Billion
+    - RSI (Day): 45.83
+    - MACD (Week): 4.78
+    - P/E Ratio: 21.16
+
+These selections emphasize stocks with a favorable combination of technical and fundamental indicators within their sectors. These candidates should be further reviewed for strategic investment opportunities.

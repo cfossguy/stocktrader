@@ -38,14 +38,61 @@ def get_triple_screen_median(ticker: str, timespan='hour', window='10', indicato
         for r in indicators:
             values.append(r.value)
         median = round(statistics.median(values),2)
-        logger.info(f'{indicator}_{timespan} for {ticker} is: {median}')
+        logger.debug(f'{indicator}_{timespan} for {ticker} is: {median}')
         return median
     except IndexError as e:
-        logger.error(f'{indicator}_{timespan} for {ticker} has error - {e}')
+        logger.debug(f'{indicator}_{timespan} for {ticker} has error - {e}')
         return 0
     except StatisticsError as se:
-        logger.error(f'{indicator}_{timespan} for {ticker} has error - {se}')
+        logger.debug(f'{indicator}_{timespan} for {ticker} has error - {se}')
         return 0
+    
+def get_rsi_rank(rsi_hour, rsi_day, rsi_week):
+    rsi_rank = 0
+    #rank up if rsi is less than 70
+    if rsi_hour < 70:
+        rsi_rank += 1
+    if rsi_day < 70:
+        rsi_rank += 1
+    if rsi_week < 70:
+        rsi_rank += 1
+    #rank up if rsi is greater than 30
+    if rsi_hour > 30:
+        rsi_rank += 1
+    if rsi_day > 30:
+        rsi_rank += 1
+    if rsi_week > 30:
+        rsi_rank += 1
+    #rank up if short crosses long
+    if rsi_hour > rsi_day:
+        rsi_rank += 1
+    if rsi_day > rsi_week: 
+        rsi_rank += 1
+    if rsi_day < 50:
+        rsi_rank += 1
+    if rsi_hour < 50:
+        rsi_rank += 1
+
+    return rsi_rank
+
+def get_macd_rank(macd_hour, macd_day, macd_week):
+    macd_rank = 0
+    #rank up if macd is positive
+    if macd_hour > 0:
+        macd_rank += 1
+    if macd_day > 0:
+        macd_rank += 1
+    if macd_week > 0:
+        macd_rank += 3
+    #rank up if macd crosses over
+    if macd_hour > macd_day:
+        macd_rank += 1
+    if macd_day > macd_week:
+        macd_rank += 1
+    if macd_hour > macd_day and macd_day > 0 and macd_week < 0:
+        macd_rank += 3
+    
+    return macd_rank
 
 def get_pe(ticker):
     polygon_client = RESTClient(api_key=POLYGON_API_KEY)
@@ -64,15 +111,15 @@ def get_pe(ticker):
         yearly_eps = sum(eps_list)
         logger.debug(f'yearly_eps={yearly_eps}, previous_close={previous_close}')
         pe = round(previous_close / yearly_eps,2)
-        logger.info(f'PE for {ticker} is: {pe}')
+        logger.debug(f'PE for {ticker} is: {pe}')
 
         return pe
 
     except IndexError as e:
-        logger.error(f'PE rating for {ticker} has error - {e}. May not have 4 past quarters of financials in polygon.io')
+        logger.debug(f'PE rating for {ticker} has error - {e}. May not have 4 past quarters of financials in polygon.io')
         return pe
     except BaseException as x:
-        logger.error(f'PE rating for {ticker} has error - {x}. May not have 4 past quarters of financials in polygon.io')
+        logger.debug(f'PE rating for {ticker} has error - {x}. May not have 4 past quarters of financials in polygon.io')
         return pe
 
 def get_news(ticker):
@@ -94,63 +141,61 @@ def get_news(ticker):
                 newsfeed.append(summary)
             
         feed_details = '\n'.join([str(item) for item in newsfeed])
-        logger.info(f'News for {ticker} processed and there are {len(newsfeed)} news items')
+        logger.debug(f'News for {ticker} processed and there are {len(newsfeed)} news items')
         
         return feed_details
 
     except IndexError as e:
-        logger.error(f'News for {ticker} has error - {e}. May not have data in polygon.io')
+        logger.debug(f'News for {ticker} has error - {e}. May not have data in polygon.io')
         return feed_details
     except BaseException as x:
-        logger.error(f'News for {ticker} has error - {x}. Unknown error polygon.io')
+        logger.debug(f'News for {ticker} has error - {x}. Unknown error polygon.io')
         traceback.print_exc()
         return feed_details
     
 def yf_sleep():
-    time.sleep(random.uniform(0,1))
+    time.sleep(random.uniform(1,3))
 
 def get_market_cap(ticker):
     try:
-        yf_sleep()
         ticker = ticker.replace('.', '-')
         ticker_data = yfc.Ticker(ticker)
         market_cap = ticker_data.info['marketCap'] 
         market_cap_in_billion = round(market_cap / 1000000000, 2)
-        logger.info(f'market cap for {ticker} is: {market_cap_in_billion}')
+        logger.debug(f'market cap for {ticker} is: {market_cap_in_billion}')
         return market_cap_in_billion
     except (KeyError, TypeError) as e:
-        logger.error(f'market cap {ticker} is: N/A because of {e.__class__.__name__}')
+        logger.debug(f'market cap {ticker} is: N/A because of {e.__class__.__name__}')
         return None
     except Exception as e:
-        logger.error(f'market cap {ticker} is: N/A because of {e}')
+        logger.debug(f'market cap {ticker} is: N/A because of {e}')
         return None
 
 def get_beta(ticker):
     try:
-        yf_sleep()  
+        time.sleep(random.uniform(1,5))  
         ticker = ticker.replace('.', '-')
         ticker_data = yfc.Ticker(ticker)
         beta = round(ticker_data.info['beta'],2)
-        logger.info(f'beta for {ticker} is: {beta}')
+        logger.debug(f'beta for {ticker} is: {beta}')
         return beta
     except (KeyError, TypeError) as e:
-        logger.error(f'beta {ticker} is: N/A because of {e.__class__.__name__}')
+        logger.debug(f'beta {ticker} is: N/A because of {e.__class__.__name__}')
         return None
     except Exception as e:
-        logger.error(f'market cap {ticker} is: N/A because of {e}')
+        logger.debug(f'market cap {ticker} is: N/A because of {e}')
         return None
 
 def get_dividend_yield(ticker):
-    yf_sleep() 
     try:
         ticker = ticker.replace('.', '-')
         ticker_data = yfc.Ticker(ticker)
-        dividend_yield = round(ticker_data.info['dividendYield'] * 100,2)
-        logger.info(f'dividend yield {ticker} is: {dividend_yield}')
+        dividend_yield = round(ticker_data.info['dividendYield'],2)
+        logger.debug(f'dividend yield {ticker} is: {dividend_yield}')
         return dividend_yield
     except (KeyError, TypeError) as e:
-        logger.error(f'dividend yield {ticker} is: N/A because of {e.__class__.__name__}')
+        logger.debug(f'dividend yield {ticker} is: N/A because of {e.__class__.__name__}')
         return None
     except Exception as e:
-        logger.error(f'dividend yield {ticker} is: N/A because of {e}')
+        logger.debug(f'dividend yield {ticker} is: N/A because of {e}')
         return None

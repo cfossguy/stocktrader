@@ -50,24 +50,40 @@ class ReportArchiveTool(BaseTool):
     def _run(self) -> str:
         ELASTIC_SEARCH_URL = os.getenv('ELASTIC_SEARCH_URL')
         ES_API_KEY = os.getenv('ES_API_KEY')
-        elastic_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY)
-        technical_report = self.get_report("data/technical_report.txt")
-        fundamental_report = self.get_report("data/fundamental_report.txt")
-        portfolio_report = self.get_report("data/portfolio_report.txt")
+        elastic_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY, request_timeout=120)
+        screen_report = self.get_report("data/screen_report.md")
+        technical_report = self.get_report("data/technical_report.md")
+        fundamental_report = self.get_report("data/fundamental_report.md")
+        portfolio_report = self.get_report("data/portfolio_report.md")
         final_report = self.get_report("data/final_report.md")
+        etf_report = self.get_report("data/etf_report.md")
 
         stocks_owned = self.csv_to_json("data/stocks_owned.csv")
         account_details = self.csv_to_json("data/account_details.csv")
         archive_date = self.get_current_date()
 
+        print(f"Archiving report details for {archive_date}...")
+
+        stock_position_usd = 0
+        cash_position_usd = 0
+        for acct in account_details:
+            cash_position_usd = cash_position_usd + float(acct["cash_position_usd"])
+            stock_position_usd = stock_position_usd + float(acct["stock_position_usd"])
+        
+        account_balance = cash_position_usd + stock_position_usd
+
         stock_picker_agent_doc = {
+            "screen_report": screen_report,
             "technical_report": technical_report,
             "fundamental_report": fundamental_report,
             "portfolio_report": portfolio_report,
             "final_report": final_report,
+            "etf_report": etf_report,
             "stocks_owned": stocks_owned,
-            "cash_position_usd": account_details[0].get("cash_position_usd"),
-            "stock_position_usd": account_details[0].get("stock_position_usd"),
+            "account_details": account_details,
+            "cash_position_usd": cash_position_usd,
+            "stock_position_usd": stock_position_usd,
+            "account_balance": account_balance,
             "date": archive_date
         }
 

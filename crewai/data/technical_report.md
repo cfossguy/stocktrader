@@ -1,0 +1,3 @@
+- Top stocks_owned SELL candidates: AIG, CI, PGR, STE
+- Top stocks_owned and screen_report BUY candidates based on technical signals: HON, PKG, TRGP, VRTX
+- Rationale for each BUY and SELL recommendation is provided above based on technical indicators and news sentiment analysis for each stock owned and the screen report candidates.

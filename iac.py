@@ -1,10 +1,11 @@
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, helpers
 import typer
 from dotenv import load_dotenv
 import os
 import logging
 import subprocess
 import functools
+import json
 
 app = typer.Typer()
 
@@ -50,7 +51,27 @@ def create_ticker_analytics_search_template():
                                     }
                                 }
                             }
-                        ]
+                        ],
+                        "should": [
+                        {
+                            "rank_feature": {
+                                "field": "rsi_rank",
+                                "boost": 10
+                            }
+                        },
+                        {
+                            "rank_feature": {
+                                "field": "macd_rank",
+                                "boost": 10
+                            }
+                        },
+                        {
+                            "rank_feature": {
+                                "field": "news_rank",
+                                "boost": 5
+                            }
+                        }
+                    ]
                     }
                 },
                 "sort": 
@@ -58,17 +79,13 @@ def create_ticker_analytics_search_template():
                     {
                         "timestamp": {
                             "order": "desc"
-                        },
-                        "rsi_hour": {
-                            "order": "asc"
-                        },
-                        "rsi_day": {
-                            "order": "asc"
-                        },
-                        "dividend_yield": {
+                        }
+                    },
+                    {
+                        "_score": {
                             "order": "desc"
                         }
-                    }      
+                    }  
                 ]
             }
         }
@@ -87,6 +104,8 @@ def create_stockpicker_agent_index():
         "mappings": {
             "properties": {
                 "date": { "type": "date", "format": "MM-dd-yyyy"},
+                "screen_report": { "type": "text", "copy_to": "screen_report_semantic" },
+                "screen_report_semantic": { "type": "semantic_text", "inference_id": model_id },
                 "portfolio_report": { "type": "text", "copy_to": "portfolio_report_semantic" },
                 "portfolio_report_semantic": { "type": "semantic_text", "inference_id": model_id },
                 "technical_report": { "type": "text", "copy_to": "technical_report_semantic" },
@@ -97,6 +116,7 @@ def create_stockpicker_agent_index():
                 "final_report_semantic": { "type": "semantic_text", "inference_id": model_id },
                 "cash_position_usd": { "type": "float" },
                 "stock_position_usd": { "type": "float" },
+                "account_balance": { "type": "float" },
                 "stocks_owned": {
                     "type": "nested",
                     "properties": {
@@ -144,6 +164,9 @@ def create_ticker_analytics_index():
                     }
                 },
                 "news_summary": { "type": "text"},
+                "news_rank": {
+                    "type": "rank_feature"
+                },
                 "macd_day": {
                     "type": "long"
                 },
@@ -152,6 +175,9 @@ def create_ticker_analytics_index():
                 },
                 "macd_week": {
                     "type": "long"
+                },
+                "macd_rank": {
+                    "type": "rank_feature"
                 },
                 "market_cap": {
                     "type": "float"
@@ -176,6 +202,9 @@ def create_ticker_analytics_index():
                 },
                 "rsi_week": {
                     "type": "long"
+                },
+                "rsi_rank": {
+                    "type": "rank_feature"
                 },
                 "sector": {
                     "type": "text",
@@ -214,6 +243,27 @@ def create_ticker_analytics_index():
 
     response = es_client.indices.create(index=index_name, body=body)
     print(f"ELASTICSEARCH: create {index_name} index: {response}")
+
+@catch_exceptions
+def update_ticker_analytics_index():
+    es_client = Elasticsearch(hosts=os.getenv('ELASTIC_SEARCH_URL'), api_key=os.getenv('ES_API_KEY'))
+    index_name = "ticker_analytics"
+    body = {
+        "properties": {
+            "macd_rank": {
+                "type": "rank_feature"
+            },
+            "rsi_rank": {
+                "type": "rank_feature"
+            },
+            "news_rank": {
+                "type": "rank_feature"
+            }
+        }
+    }
+
+    response = es_client.indices.put_mapping(index=index_name, body=body)
+    print(f"ELASTICSEARCH: update {index_name} index: {response}")
 
 @catch_exceptions
 def create_ticker_llm_metrics_index():
@@ -255,11 +305,62 @@ def create_ticker_llm_metrics_index():
     print(f"ELASTICSEARCH: create ticker_llm_metrics index: {response}")
 
 @app.command()
+def update_settings():
+    update_ticker_analytics_index()
+    create_ticker_analytics_search_template()
+
+@app.command()
 def setup_elastic():
     create_ticker_analytics_index()
     create_ticker_analytics_search_template()
     create_ticker_llm_metrics_index()
     create_stockpicker_agent_index()
+
+@app.command()
+def backup_data(index_name: str):
+
+    # Initialize the Elasticsearch client
+    es_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY, request_timeout=600)
+    
+    # Define the backup file name
+    backup_file = f'{index_name}_backup.jsonl'
+
+    # Open the backup file for writing
+    with open(backup_file, 'w') as f:
+        # Use the helpers.scan function to retrieve all documents from the index
+        for doc in helpers.scan(es_client, index=index_name):
+            # Filter out fields that end with "semantic"
+            filtered_doc = {k: v for k, v in doc['_source'].items() if not (k.endswith('semantic') or k.endswith('_e5'))}
+            # Write the filtered document to the backup file in JSONL format
+            f.write(json.dumps(filtered_doc) + '\n')
+
+    print(f'Backup of index "{index_name}" completed successfully and saved to "{backup_file}".')
+
+@app.command()
+def restore_data(index_name: str):
+
+    # Initialize the Elasticsearch client
+    es_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY, request_timeout=600)
+
+    # Define the backup file name
+    backup_file = f'{index_name}_backup.jsonl'
+
+    # Open the backup file for reading
+    with open(backup_file, 'r') as f:
+        # Read each line in the backup file
+        actions = [
+            {
+                "_index": index_name,
+                "_source": json.loads(line),
+                "_id": json.loads(line).get('date')
+            }
+            for line in f
+        ]
+
+    # Use the helpers.bulk function to insert all documents into the index
+    helpers.bulk(es_client, actions)
+
+    print(f'Restore of index "{index_name}" completed successfully from "{backup_file}".')
 
 @app.command()
 def teardown_elastic():

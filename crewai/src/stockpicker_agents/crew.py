@@ -2,7 +2,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai_tools import SerperDevTool, FileReadTool
 from stockpicker_agents.tools import TickerAnalyticsLookupTool, StockScreenerTool, ReportArchiveTool
-import os
+from crewai import LLM
 
 # If you want to run a snippet of code before or after the crew starts, 
 # you can use the @before_kickoff and @after_kickoff decorators
@@ -23,20 +23,27 @@ class StockpickerAgents():
 	search_tool = SerperDevTool()
 	stocks_owned = FileReadTool(file_path="data/stocks_owned.csv")
 	account_details = FileReadTool(file_path="data/account_details.csv")
-	technical_report = FileReadTool(file_path="data/technical_report.txt")
-	fundamental_report = FileReadTool(file_path="data/fundamental_report.txt")
-	portfolio_report = FileReadTool(file_path="data/portfolio_report.txt")
+
+	screen_report = FileReadTool(file_path="data/screen_report.md")
+	technical_report = FileReadTool(file_path="data/technical_report.md")
+	fundamental_report = FileReadTool(file_path="data/fundamental_report.md")
+	portfolio_report = FileReadTool(file_path="data/portfolio_report.md")
+	
 
 	ticker_analytics_lookup = TickerAnalyticsLookupTool()
 	stock_screener_tool = StockScreenerTool()
 	report_archive_tool = ReportArchiveTool()
 
+	agent_llm = LLM(model="openai/gpt-4o-mini", # call model by provider/model_name
+		   	  temperature=0.1, max_tokens=16384, top_p=0.9, frequency_penalty=0.1, presence_penalty=0.1, stop=["END"],seed=42)
+	
 	@agent
 	def stock_screener(self) -> Agent:
 		return Agent(
 			config=self.agents_config['stock_screener'],
 			verbose=True,
-			tools=[self.stock_screener_tool]
+			tools=[self.stock_screener_tool],
+			llm=self.agent_llm
 		)
 
 	@agent
@@ -44,7 +51,8 @@ class StockpickerAgents():
 		return Agent(
 			config=self.agents_config['fundamental_analyst'],
 			verbose=True,
-			tools=[self.stocks_owned, self.ticker_analytics_lookup]
+			tools=[self.stocks_owned, self.ticker_analytics_lookup, self.screen_report],
+			llm=self.agent_llm
 		)
 	
 	@agent
@@ -52,7 +60,17 @@ class StockpickerAgents():
 		return Agent(
 			config=self.agents_config['technical_analyst'],
 			verbose=True,
-			tools=[self.stocks_owned, self.ticker_analytics_lookup]
+			tools=[self.stocks_owned, self.ticker_analytics_lookup, self.screen_report],
+			llm=self.agent_llm
+		)
+	
+	@agent
+	def etf_analyst(self) -> Agent:
+		return Agent(
+			config=self.agents_config['etf_analyst'],
+			verbose=True,
+			tools=[self.stocks_owned, self.ticker_analytics_lookup, self.screen_report],
+			llm=self.agent_llm
 		)
 	
 	@agent
@@ -60,7 +78,8 @@ class StockpickerAgents():
 		return Agent(
 			config=self.agents_config['portfolio_manager'],
 			verbose=True,
-			tools=[self.stocks_owned, self.account_details, self.ticker_analytics_lookup, self.technical_report, self.fundamental_report]
+			tools=[self.stocks_owned, self.account_details, self.ticker_analytics_lookup, self.technical_report, self.fundamental_report],
+			llm=self.agent_llm
 		)
 	
 	@agent
@@ -68,7 +87,8 @@ class StockpickerAgents():
 		return Agent(
 			config=self.agents_config['report_analyst'],
 			verbose=True,
-			tools=[self.ticker_analytics_lookup, self.technical_report, self.fundamental_report, self.portfolio_report, self.report_archive_tool]
+			tools=[self.screen_report, self.ticker_analytics_lookup, self.technical_report, self.fundamental_report, self.portfolio_report, self.report_archive_tool],
+			llm=self.agent_llm
 		)
 	
 	@task
@@ -76,13 +96,18 @@ class StockpickerAgents():
 		return Task(
 			config=self.tasks_config['stock_screen']
 		)
+	
+	@task
+	def etf_analysis(self) -> Task:
+		return Task(
+			config=self.tasks_config['etf_analysis']
+		)
 
 	@task
 	def technical_analysis(self) -> Task:
 		return Task(
 			config=self.tasks_config['technical_analysis']
 		)
-	
 	
 	@task
 	def fundamental_analysis(self) -> Task:

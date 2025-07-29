@@ -1,68 +1,91 @@
-# Final Report Summary
+# Investment Report Summary
 
-## BUY Recommendations
+## BUY Candidates
+1. **Honeywell (HON)**
+   - **Rationale**: Strong technical indicators with a favorable MACD and RSI suggesting upward momentum. The company has a solid market position in the industrial sector.
+   
+2. **Packaging Corporation of America (PKG)**
+   - **Rationale**: Positive fundamental metrics with a robust dividend yield and strong earnings growth potential. Technical signals indicate a bullish trend.
 
-1. **Microsoft (MSFT)**
-   - **Rationale:** Leadership in AI and cloud services shows strong potential for long-term growth. Strategic positioning ensures resilience and provides a compelling case for continued investment. Portfolio rebalancing might be necessary if this exceeds 20%.
+3. **Targa Resources (TRGP)**
+   - **Rationale**: Benefiting from favorable energy market conditions. Technical indicators show strong buy signals, and fundamentals are solid.
 
-2. **Alphabet Inc. (GOOG)**
-   - **Rationale:** Google's innovations in AI and quantum computing paired with robust financial health underscore its market strength. Considered a strong buy due to future growth opportunities.
+4. **Vertex Pharmaceuticals (VRTX)**
+   - **Rationale**: Strong pipeline and growth potential in the biotech sector. Technical indicators support a bullish outlook.
 
-3. **Deckers Brands (DECK)**
-   - **Rationale:** Exceptional financial performance of leading footwear brands and market expectation beating trend support increased investment. Maintain or increase allocation in the Consumer Discretionary sector.
+5. **Paychex (PAYX)**
+   - **Rationale**: Consistent revenue growth and strong market position in HR services. Technical indicators suggest potential for upward movement.
 
-4. **Xcel Energy (XEL)**
-   - **Rationale:** With improving customer engagement and stability in its financial metrics, Xcel Energy represents a solid investment within utilities. Potentially increase holding to diversify sector exposure.
+6. **Allstate (ALL)**
+   - **Rationale**: Solid fundamentals with a good dividend yield. Technical signals indicate potential for recovery.
 
-5. **Broadridge Financial Solutions (BR)**
-   - **Rationale:** Continuous strong performance and growing sector opportunities indicate benefits in financial services. Increase in alignment with diversification goals.
+7. **Darden Restaurants (DRI)**
+   - **Rationale**: Strong recovery post-pandemic with solid earnings growth. Technical indicators are favorable.
 
-## SELL Recommendations
+8. **Coca-Cola Company (KO)**
+   - **Rationale**: Stable cash flows and strong brand presence. Technical indicators suggest a potential upward trend.
 
-1. **Verizon Communications (VZ)**
-   - **Rationale:** Underwhelming revenue figures, high valuation risks, and intensified competition necessitate reduced exposure to mitigate risks.
+9. **Chubb Limited (CB)**
+   - **Rationale**: Strong fundamentals in the insurance sector with good growth prospects. Technical indicators are supportive.
 
-2. **EQT Corporation (EQT)**
-   - **Rationale:** Volatile market conditions and high PE ratio suggest risk reduction in the energy sector is prudent.
+10. **Quest Diagnostics (DGX)**
+    - **Rationale**: Strong demand for health services and solid earnings growth potential. Technical indicators suggest bullish momentum.
 
-3. **Union Pacific (UNP)**
-   - **Rationale:** External pressures and underperformance highlight the need for a reduced stake amidst restructural challenges.
+11. **Williams Companies (WMB)**
+    - **Rationale**: Strong position in the energy sector with good dividend yield. Technical indicators are positive.
 
-4. **Ingersoll Rand (IR)**
-   - **Rationale:** Negative market outlook and shrinking industrial demand present a case to divert to sectors with better certainty.
+## SELL Candidates
+1. **American International Group (AIG)**
+   - **Rationale**: Weak technical signals and declining fundamentals suggest it is time to exit this position.
 
-5. **Charles Schwab Corporation (SCHW)**
-   - **Rationale:** Sector volatility and systemic risks in financials warrant a careful reduction to hedge against unfavorable conditions.
+2. **Cigna (CI)**
+   - **Rationale**: Underperformance in the health care sector with negative technical indicators warranting a sell.
 
-## Portfolio Breakdown
+3. **Progressive Corporation (PGR)**
+   - **Rationale**: Deteriorating technical signals and concerns over future growth prospects lead to a recommendation to sell.
 
-### By Company
-- Microsoft (MSFT): 25.13%
-- Alphabet Inc. (GOOG): 14.69%
-- Deckers Brands (DECK): 10.82%
-- Union Pacific (UNP): 10.65%
-- American Electric Power (AEP): 5.60%
-- Xcel Energy (XEL): 4.05%
-- EQT Corporation (EQT): 4.70%
-- Broadridge Financial Solutions (BR): 3.51%
-- Verizon Communications (VZ): 3.60%
-- Ingersoll Rand (IR): 2.73%
-- Emerson Electric (EMR): 1.48%
-- Charles Schwab Corporation (SCHW): 2.24%
+4. **Stericycle (STE)**
+   - **Rationale**: Weak performance metrics and negative technical signals indicate it is prudent to divest from this stock.
 
-### By Industry/Sector
-- Information Technology: 25.13%
-- Communication Services: 18.28%
-- Industrials: 18.39%
-- Consumer Discretionary: 10.82%
-- Utilities: 9.65%
-- Energy: 4.70%
-- Financials: 2.24%
+## Portfolio Breakdown by Company
+- AEP: 3.08%
+- AIG: 2.84% (SELL)
+- ATO: 6.86%
+- CI: 2.10% (SELL)
+- DUK: 13.49%
+- HON: 0.95% (BUY)
+- KO: 3.91%
+- MSFT: 13.86%
+- PGR: 6.86% (SELL)
+- PKG: 2.89% (BUY)
+- STE: 3.24% (SELL)
+- TMUS: 6.78%
+- TRGP: 6.21% (BUY)
+- TRV: 1.83%
+- VRSK: 2.93%
+- VRTX: 13.23% (BUY)
+- VTR: 2.83%
+- WMT: 4.87%
+- WTW: 3.02%
+- IWM: 3.17%
+- JPST: 77.63% (excessive allocation)
+- QQQ: 7.27%
+- SPY: 5.42%
 
-## Recommended Portfolio Adjustments
+## Portfolio Breakdown by Industry/Sector
+- Industrials: HON (0.95%)
+- Materials: PKG (2.89%)
+- Energy: TRGP (6.21%), WMB (3.48%)
+- Health Care: CI (2.10%), VRTX (13.23%), DGX (1.91%)
+- Consumer Staples: KO (3.91%)
+- Financials: AIG (2.84%), PGR (6.86%), CB (1.46%)
+- Consumer Discretionary: DRI (2.95%)
+- Utilities: DUK (13.49%)
+- Technology: MSFT (13.86%)
+- Real Estate: VTR (2.83%)
 
-- **Reduce** holdings in VZ, EQT, UNP, IR, and SCHW to mitigate risks associated with volatility and underperformance.
-- **Increase** exposure in MSFT, GOOG, DECK, XEL, and BR, focusing on high-growth and stable sectors for a well-balanced portfolio.
-- Ensure adjustments maintain diversified portfolio with any single holding not exceeding 20% of the total portfolio.
+## Final Adjustments
+- Reduce exposure to AIG, CI, PGR, and STE to maintain diversification and limit risk.
+- Increase positions in HON, PKG, TRGP, VRTX, PAYX, ALL, DRI, KO, CB, DGX, and WMB to capture growth opportunities.
 
-This comprehensive summary provides strategic insights and actionable recommendations for the current portfolio, aligning closely with data-driven analysis and market conditions.
+This report provides a comprehensive overview of current investment opportunities and necessary adjustments to optimize portfolio performance based on collective research insights from technical, fundamental, and portfolio analyses.

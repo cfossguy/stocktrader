@@ -9,11 +9,14 @@ import llm
 import glob
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
-import os
 import logging
 from retrying import retry
 import shutil
 import typer
+import functools
+import subprocess
+import os
+import sys
 
 load_dotenv()
 
@@ -21,16 +24,38 @@ use_small_dataset = False
 
 app = typer.Typer()
 
-logger = logging.getLogger("ray")
-
 ELASTIC_SEARCH_URL = os.getenv('ELASTIC_SEARCH_URL')
 ES_API_KEY = os.getenv('ES_API_KEY')
 POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 YAHOO_FINANCE_CACHE_DIR = os.getenv('YAHOO_FINANCE_CACHE_DIR')
+LOCAL_DATA_DIR = os.getenv('LOCAL_DATA_DIR')
 
 if None in [ELASTIC_SEARCH_URL, ES_API_KEY, POLYGON_API_KEY, OPENAI_API_KEY]:
     raise ValueError("One or more environment variables are not set. Please check your .env file.")
+
+def logging_setup_func():
+    logger = logging.getLogger("ray")
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s -- %(message)s')
+    stream_handler = logging.StreamHandler(stream=sys.stdout)  # Use sys.stdout instead of default sys.stderr
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    logger.propagate = False
+
+logger = logging.getLogger("ray")
+logging_setup_func()
+
+def catch_exceptions(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"{func.__name__}: {e}")
+    return wrapper
 
 def clear_yfinance_cache():
     if os.path.exists(YAHOO_FINANCE_CACHE_DIR):
@@ -42,7 +67,37 @@ def clear_yfinance_cache():
         else:
             logger.info(f"Cache directory is less than 24 hours old: {YAHOO_FINANCE_CACHE_DIR}")
     else:
-        logger.warning(f"Cache directory does not exist: {YAHOO_FINANCE_CACHE_DIR}")
+        logger.debug(f"Cache directory does not exist: {YAHOO_FINANCE_CACHE_DIR}")
+
+def add_stock_record(stocks_frame, ticker, name, sector, industry):
+    new_record = pd.DataFrame([{
+        'ticker': ticker,
+        'name': name,
+        'sector': sector,
+        'industry': industry
+    }])
+    stocks_frame = pd.concat([stocks_frame, new_record], ignore_index=True)
+    logger.debug(f"Added new stock record: {new_record.to_dict(orient='records')[0]}")
+    return stocks_frame
+
+def add_etf_list(stocks_frame):
+    # add ETFs that should be included in the list
+    stocks_frame = add_stock_record(stocks_frame, 'VIX', 'CBOE Market Volitility', 'VIX', 'VIX')
+    stocks_frame = add_stock_record(stocks_frame, 'JPST', 'JPMorgan Ultra-Short Income ETF', 'Bond Fund', 'Conservative')
+
+    stocks_frame = add_stock_record(stocks_frame, 'QQQ', 'Tech Sector ETF', 'Technology', 'Technology')
+    stocks_frame = add_stock_record(stocks_frame, 'TQQQ', 'Tech Sector Inverse ETF - 3x+', 'Technology - Long', 'Technology')
+    stocks_frame = add_stock_record(stocks_frame, 'SQQQ', 'Tech Sector Inverse ETF - 3x-', 'Technology - Short', 'Technology')
+
+    stocks_frame = add_stock_record(stocks_frame, 'SPY', 'SP500 ETF', 'SP500', 'SP500')
+    stocks_frame = add_stock_record(stocks_frame, 'UPRO', 'SP500 ETF Inverse ETF - 3x+', 'SP500 - Long', 'SP500')
+    stocks_frame = add_stock_record(stocks_frame, 'SPXU', 'SP500 ETF Inverse ETF - 3x-', 'SP500 - Short', 'SP500')
+    
+    stocks_frame = add_stock_record(stocks_frame, 'IWM', 'iShares Russell 2000 ETF', 'Broad Market', 'Moderate Risk')
+    stocks_frame = add_stock_record(stocks_frame, 'URTY', 'UltraPro Russell 2000 - 3x+', 'Broad Market - Long', 'High Risk')
+    stocks_frame = add_stock_record(stocks_frame, 'SRTY', 'UltraPro Russell 2000 - 3x-', 'Broad Market - Short', 'High Risk')
+
+    return stocks_frame
 
 def fetch_sp500_list():
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
@@ -55,8 +110,7 @@ def fetch_sp500_list():
     logger.info("S&P 500 list fetched from wikipedia")
 
     if use_small_dataset:
-        # stocks_frame = stocks_frame.head(50)
-        stocks_frame = stocks_frame[stocks_frame['ticker'] == 'PGR']
+        stocks_frame = stocks_frame.head(3)
 
     return stocks_frame
 
@@ -85,16 +139,21 @@ def generate_news_summary_remote(ticker, news):
     return llm.generate_news_summary(ticker, news)
 
 @ray.remote
+def generate_news_rank_remote(ticker, news):
+    return llm.generate_news_rank(ticker, news)
+
+@ray.remote
 def get_news_remote(ticker):
     return market_analytics.get_news(ticker)
 
 @ray.remote(num_cpus=12)
 def generate_analytics_json_sp500():
-    data_dir = './data'
+    data_dir = LOCAL_DATA_DIR
     ticker_analytics_datafile = f'{data_dir}/ticker_analytics.jsonl'
     stocks_frame = None
     try:
         stocks_frame = fetch_sp500_list()
+        stocks_frame = add_etf_list(stocks_frame)
     except Exception as e:
         logger.error("An exception occurred web scraping from wikipedia", exc_info=True)
         return None
@@ -127,6 +186,8 @@ def generate_analytics_json_sp500():
         rsi_week_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "rsi", "week"), axis=1).tolist()
         stocks_frame['rsi_week'] = ray.get(rsi_week_futures)
 
+        stocks_frame['rsi_rank'] = stocks_frame.apply(lambda row: market_analytics.get_rsi_rank(row['rsi_hour'], row['rsi_day'], row['rsi_week']), axis=1)
+        
         macd_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "macd", "hour"), axis=1).tolist()
         stocks_frame['macd_hour'] = ray.get(macd_hour_futures)
 
@@ -135,6 +196,8 @@ def generate_analytics_json_sp500():
 
         macd_week_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "macd", "week"), axis=1).tolist()
         stocks_frame['macd_week'] = ray.get(macd_week_futures)
+
+        stocks_frame['macd_rank'] = stocks_frame.apply(lambda row: market_analytics.get_rsi_rank(row['macd_hour'], row['macd_day'], row['macd_week']), axis=1)
 
         sma_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "sma", "hour"), axis=1).tolist()
         stocks_frame['sma_hour'] = ray.get(sma_hour_futures)
@@ -156,7 +219,19 @@ def generate_analytics_json_sp500():
             ), 
             axis=1
         ).tolist()
+        
         stocks_frame['news_summary'] = ray.get(news_summary_futures)
+
+        logger.info("Adding GPT-4 news ranks")
+        news_rank_futures = stocks_frame.apply(
+            lambda row: generate_news_rank_remote.remote(
+                ticker=row.ticker.strip(), 
+                news=get_news_remote.remote(ticker=row.ticker.strip())
+            ), 
+            axis=1
+        ).tolist()
+        stocks_frame['news_rank'] = ray.get(news_rank_futures)
+        logger.info("GPT-4 news summaries and ranks added for all tickers")
     except Exception as e: 
         logger.error("An exception occurred generating news sentiment", exc_info=True)
 
@@ -165,10 +240,9 @@ def generate_analytics_json_sp500():
     except:
         logger.error("An exception occurred writing data to jsonl", exc_info=True)
 
-@ray.remote(num_cpus=12)
 def insert_jsonl_to_elastic(index_name: str):
     elastic_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY)
-    data_dir = './data'
+    data_dir = LOCAL_DATA_DIR
     files = glob.glob(f'{data_dir}/{index_name}.jsonl')
     for file in files:
         records = []
@@ -185,33 +259,43 @@ def insert_jsonl_to_elastic(index_name: str):
                 }
                 records.append(record)
         try:
-            logger.info(f"Indexing {len(records)} documents from {file} to ElasticSearch")
+            logger.debug(f"Indexing {len(records)} documents from {file} to ElasticSearch")
             helpers.bulk(elastic_client, records, chunk_size=500)
         except helpers.BulkIndexError as e:
-            logger.error(f"Failed to index documents: {e.errors}") 
-
-def logging_setup_func():
-    logger = logging.getLogger("ray")
-    logger.setLevel(logging.INFO)
-    logger.handlers.clear()
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s -- %(message)s')
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-
-    logger.propagate = False
+            logger.error(f"Failed to index documents: {e.errors}")
+        logger.info(f"Successfully indexed {len(records)} documents to ElasticSearch index: {index_name}") 
 
 @app.command()
 def clear_cache():
     clear_yfinance_cache()
+    
 
 @app.command()
 def elastic_bulk_load():
     insert_jsonl_to_elastic("ticker_analytics")
 
 @app.command()
-def run():
-    ray.init(address='auto', runtime_env={"env_vars": {
+@catch_exceptions
+def restart_ray():
+    command = ["ray", "stop"]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode == 0:
+        logger.info("RAY: stopped successfully")
+        logger.info(result.stdout)
+    else:
+        logger.info("RAY: failed to stop")
+        logger.info(result.stderr)
+    command = ["ray", "start", "--head", "--dashboard-port=8080"]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode == 0:
+        logger.info("RAY: started successfully")
+    else:
+        logger.info("RAY: failed to start. It's probably already running or a permissions issue.")
+
+@app.command()
+def run_data_pipeline():
+    restart_ray()
+    ray.init(address='auto', ignore_reinit_error=True, runtime_env={"env_vars": {
         "ELASTIC_SEARCH_URL": ELASTIC_SEARCH_URL,
         "ES_API_KEY": ES_API_KEY,
         "POLYGON_API_KEY": POLYGON_API_KEY,
@@ -222,8 +306,13 @@ def run():
     clear_yfinance_cache()
 
     ray.get(generate_analytics_json_sp500.remote())
-    ray.get(insert_jsonl_to_elastic.remote("ticker_analytics"))
+    insert_jsonl_to_elastic("ticker_analytics")
+    
+@app.command()
+def test_logging():
+    logger.info("This is an info message")
+    logger.debug("This is a debug message")
+    logger.error("This is an error message")
     
 if __name__ == "__main__":
     app()
-   

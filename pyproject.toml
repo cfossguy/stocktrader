@@ -24,7 +24,8 @@ ecs-logging = "^2.2.0"
 ray = {extras = ["all"], version = "^2.40.0"}
 yfinance-cache = "^0.7.1"
 pydantic = "^2.10.4"
-crewai = {extras = ["tools"], version = "^0.86.0"}
+lxml = "^5.3.1"
+fast-agent-mcp = "^0.2.45"
 
 
 [tool.poetry.group.dev.dependencies]
