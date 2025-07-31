@@ -5,30 +5,35 @@ import { config } from 'dotenv';
 
 config();
 const inputSchema = z.object({
-  command: z.enum(["run"]).default("run").describe("Command options for CrewAI tool.")
+  scriptCommand: z.enum(["run-data-pipeline", "test-logging", "run-crewai"]).describe("Command options for python tool.")
 });
 const outputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
   details: z.record(z.string(), z.any()).optional()
 });
+const scriptPaths = {
+  "run-data-pipeline": process.env.PY_PIPELINE_PATH ?? "",
+  "test-logging": process.env.PY_PIPELINE_PATH ?? "",
+  "run-crewai": process.env.PY_CREW_AI_PATH ?? ""
+};
 let currentExecution = null;
-const executeCrewAI = async (params) => {
+const executePython = async (params) => {
   if (currentExecution) {
     return currentExecution;
   }
   currentExecution = new Promise(async (resolve) => {
     try {
-      const { command } = params;
-      const crewAIPath = process.env.PY_CREW_AI_PATH;
-      if (!crewAIPath) {
-        throw new Error("PY_CREW_AI_PATH is not set in .env");
+      const { scriptCommand } = params;
+      const scriptPath = scriptPaths[scriptCommand];
+      const resolvedScriptPath = scriptPath;
+      if (!resolvedScriptPath) {
+        throw new Error("Script path is not specified missing .env variable");
       }
       console.log(`params: ${JSON.stringify(params)}`);
-      console.log(`[CrewAITool] Executing command: ${command} in directory: ${crewAIPath}`);
-      const child = spawn("crewai", [command], {
-        cwd: crewAIPath,
-        // Set the working directory to PY_CREW_AI_PATH
+      console.log(`[PythonTool] Executing script: ${resolvedScriptPath} with command: ${scriptCommand}`);
+      const args = ["-u", resolvedScriptPath, scriptCommand];
+      const child = spawn("python", args, {
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"]
       });
@@ -36,11 +41,11 @@ const executeCrewAI = async (params) => {
       let stderrBuffer = "";
       child.stdout.on("data", (data) => {
         stdoutBuffer += data.toString();
-        process.stdout.write(`[CrewAI stdout] ${data}`);
+        process.stdout.write(`[Python stdout] ${data}`);
       });
       child.stderr.on("data", (data) => {
         stderrBuffer += data.toString();
-        process.stderr.write(`[CrewAI stderr] ${data}`);
+        process.stderr.write(`[Python stderr] ${data}`);
       });
       const startTime = Date.now();
       await new Promise((resolveChild, rejectChild) => {
@@ -51,9 +56,10 @@ const executeCrewAI = async (params) => {
             resolveChild(void 0);
             resolve({
               success: true,
-              message: "CrewAI command executed successfully",
+              message: "Python script executed successfully",
               details: {
-                command,
+                scriptPath: resolvedScriptPath,
+                command: scriptCommand,
                 stdout: stdoutBuffer.split("\n"),
                 // Store each line as an array entry
                 stderr: stderrBuffer.split("\n"),
@@ -61,7 +67,7 @@ const executeCrewAI = async (params) => {
               }
             });
           } else {
-            rejectChild(new Error(`CrewAI exited code=${code} signal=${signal ?? "none"}`));
+            rejectChild(new Error(`Python exited code=${code} signal=${signal ?? "none"}`));
           }
         });
       });
@@ -77,15 +83,15 @@ const executeCrewAI = async (params) => {
   });
   return currentExecution;
 };
-const crewaiTool = createTool({
-  id: "crewai-tool",
-  description: "Execute CrewAI commands",
+const pythonTool = createTool({
+  id: "python-tool",
+  description: "Execute data pipeline commands and crew AI commands using Python scripts.",
   inputSchema,
   outputSchema,
   execute: async ({ context }) => {
-    return executeCrewAI(context);
+    return executePython(context);
   }
 });
 
-export { crewaiTool };
-//# sourceMappingURL=914fe8b3-681f-4133-9f80-0c62ff0e1468.mjs.map
+export { pythonTool };
+//# sourceMappingURL=7c08b851-6a81-477f-8618-3a422062f23f.mjs.map

@@ -5,14 +5,11 @@ import { checkEvalStorageFields } from '@mastra/core/utils';
 import { Mastra } from '@mastra/core/mastra';
 import { openai } from '@ai-sdk/openai';
 import { Agent } from '@mastra/core/agent';
-import { weatherTool } from './tools/cfca9810-a026-41d6-80d4-6693efe5e6e0.mjs';
-import { createTool, isVercelTool, Tool } from '@mastra/core/tools';
-import { z, ZodFirstPartyTypeKind } from 'zod';
-import { config } from 'dotenv';
-import { Client } from '@elastic/elasticsearch';
+import { weatherTool } from './tools/f44cd6f2-f141-46e1-b7a3-96eb8cd7bf59.mjs';
+import { crewaiChatTool } from './tools/4ddb0dd6-6728-4f3f-841e-531a2f4394ef.mjs';
 import { createWorkflow, createStep } from '@mastra/core/workflows';
-import { datapipelineTool } from './tools/ae1655b5-fdb3-4bc5-8f24-f1fde4971c64.mjs';
-import { crewaiTool } from './tools/914fe8b3-681f-4133-9f80-0c62ff0e1468.mjs';
+import { z, ZodFirstPartyTypeKind } from 'zod';
+import { pythonTool } from './tools/7c08b851-6a81-477f-8618-3a422062f23f.mjs';
 import crypto, { randomUUID } from 'crypto';
 import { readFile } from 'fs/promises';
 import { join } from 'path/posix';
@@ -22,11 +19,14 @@ import { Readable, Writable } from 'stream';
 import { createReadStream, lstatSync } from 'fs';
 import { generateEmptyFromSchema, Telemetry } from '@mastra/core';
 import { RuntimeContext } from '@mastra/core/runtime-context';
+import { isVercelTool, Tool } from '@mastra/core/tools';
 import util from 'util';
 import { Buffer as Buffer$1 } from 'buffer';
 import { A2AError } from '@mastra/core/a2a';
 import { ReadableStream as ReadableStream$1 } from 'stream/web';
 import { tools } from './tools.mjs';
+import 'dotenv';
+import '@elastic/elasticsearch';
 import 'child_process';
 
 const weatherAgent = new Agent({
@@ -45,127 +45,6 @@ const weatherAgent = new Agent({
 `,
   model: openai("gpt-4o-mini"),
   tools: { weatherTool }
-});
-
-config();
-const outputSchema = z.object({
-  success: z.boolean(),
-  message: z.string(),
-  data: z.record(z.string(), z.string()).optional()
-});
-const client = new Client({
-  node: process.env.ELASTIC_SEARCH_URL,
-  auth: {
-    apiKey: process.env.ES_API_KEY
-  }
-});
-const executeCrewAIChatTool = async () => {
-  try {
-    if (!process.env.ELASTIC_SEARCH_URL) {
-      throw new Error("Elasticsearch URL is not set. Ensure ELASTIC_SEARCH_URL is defined in the .env file.");
-    }
-    if (!process.env.ES_API_KEY) {
-      throw new Error("Elasticsearch API key is not set. Ensure ES_API_KEY is defined in the .env file.");
-    }
-    const response = await client.search({
-      index: "stockpicker_agent",
-      size: 1,
-      // Get up to 10 latest documents
-      track_total_hits: true,
-      sort: [
-        { "date": { order: "desc" } }
-      ],
-      _source: [
-        "date",
-        "account_balance",
-        "account_details",
-        "cash_position_usd",
-        "date",
-        "etf_report",
-        "final_report",
-        "fundamental_report",
-        "portfolio_report",
-        "screen_report",
-        "stock_position_usd",
-        "stocks_owned",
-        "technical_report"
-      ]
-    });
-    const documentContents = {};
-    if (response.hits.hits.length === 0) {
-      return {
-        success: true,
-        message: "No documents found in Elasticsearch.",
-        data: {}
-      };
-    }
-    for (const hit of response.hits.hits) {
-      if (hit._source) {
-        const doc = hit._source;
-        if (doc.date) {
-          documentContents["date"] = doc.date;
-        }
-        if (doc.final_report) {
-          documentContents["final_report"] = doc.final_report;
-        }
-        if (doc.etf_report) {
-          documentContents["etf_report"] = doc.etf_report;
-        }
-        if (doc.fundamental_report) {
-          documentContents["fundamental_report"] = doc.fundamental_report;
-        }
-        if (doc.portfolio_report) {
-          documentContents["portfolio_report"] = doc.portfolio_report;
-        }
-        if (doc.screen_report) {
-          documentContents["screen_report"] = doc.screen_report;
-        }
-        if (doc.technical_report) {
-          documentContents["technical_report"] = doc.technical_report;
-        }
-        if (doc.account_details) {
-          documentContents["account_details"] = JSON.stringify(doc.account_details, null, 2);
-        }
-        if (doc.stocks_owned && doc.stocks_owned.length > 0) {
-          documentContents["stocks_owned"] = JSON.stringify(doc.stocks_owned, null, 2);
-        }
-        if (doc.account_balance !== void 0) {
-          documentContents["account_balance"] = doc.account_balance.toString();
-        }
-        if (doc.cash_position_usd !== void 0) {
-          documentContents["cash_position_usd"] = doc.cash_position_usd.toString();
-        }
-        if (doc.stock_position_usd !== void 0) {
-          documentContents["stock_position_usd"] = doc.stock_position_usd.toString();
-        }
-        if (Object.keys(documentContents).length === 0 && doc.content) {
-          const key = doc.title || `document_${hit._id}`;
-          documentContents[key] = doc.content;
-        }
-        if (Object.keys(documentContents).length === 0) {
-          documentContents[`document_${hit._id}`] = JSON.stringify(doc, null, 2);
-        }
-      }
-    }
-    return {
-      success: true,
-      message: `Retrieved ${response.hits.hits.length} documents from Elasticsearch. Latest data from ${response.hits.hits[0]?._source?.date || "unknown date"}.`,
-      data: documentContents
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: `Error querying Elasticsearch: ${error.message}`
-    };
-  }
-};
-const crewaiChatTool = createTool({
-  id: "crewai-chat-tool",
-  description: "Retrieve the latest stock picker agent data from Elasticsearch for context.",
-  outputSchema,
-  execute: async () => {
-    return executeCrewAIChatTool();
-  }
 });
 
 const crewaiAgent = new Agent({
@@ -194,7 +73,7 @@ const runDataPipelineStep = createStep({
     executionTime: z.string().optional()
   }),
   execute: async ({ runtimeContext }) => {
-    const result = await datapipelineTool.execute({
+    const result = await pythonTool.execute({
       context: { scriptCommand: "run-data-pipeline" },
       runtimeContext
     });
@@ -226,8 +105,8 @@ const runCrewAIStep = createStep({
         executionTime: "0 minutes"
       };
     }
-    const result = await crewaiTool.execute({
-      context: { command: "run" },
+    const result = await pythonTool.execute({
+      context: { scriptCommand: "run-crewai" },
       runtimeContext: params.runtimeContext
     });
     return {
@@ -237,17 +116,49 @@ const runCrewAIStep = createStep({
     };
   }
 });
+const completionStep = createStep({
+  id: "completion-step",
+  description: "Finalizes the workflow process and handles any cleanup or notifications",
+  inputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+    executionTime: z.string().optional()
+  }),
+  outputSchema: z.object({
+    completed: z.boolean(),
+    completionMessage: z.string(),
+    completionTime: z.string()
+  }),
+  execute: async (params) => {
+    const startTime = Date.now();
+    const overallSuccess = params.inputData.success;
+    let completionMessage = `Workflow execution ${overallSuccess ? "completed successfully" : "completed with issues"}. `;
+    if (overallSuccess) {
+      completionMessage += "All reports have been generated and are ready for review.";
+    } else {
+      completionMessage += "There were issues during execution. Please check the logs for details.";
+    }
+    const completionTime = ((Date.now() - startTime) / 1e3 / 60).toFixed(2);
+    return {
+      completed: true,
+      completionMessage,
+      completionTime: `${completionTime} minutes`
+    };
+  }
+});
 const stockpickerWorkflow = createWorkflow({
   id: "stockpicker-workflow",
-  description: "Workflow to run data pipeline and then CrewAI analysis",
+  description: "Workflow to run data pipeline and then CrewAI analysis with completion step",
   inputSchema: z.object({}),
   outputSchema: z.object({
     dataPipelineSuccess: z.boolean(),
     crewAISuccess: z.boolean(),
+    workflowCompleted: z.boolean(),
     finalMessage: z.string(),
+    completionMessage: z.string(),
     totalExecutionTime: z.string().optional()
   })
-}).then(runDataPipelineStep).then(runCrewAIStep).map({
+}).then(runDataPipelineStep).then(runCrewAIStep).then(completionStep).map({
   dataPipelineSuccess: {
     value: (outputs) => outputs["run-data-pipeline-step"].pipelineSuccess,
     schema: z.boolean()
@@ -256,22 +167,33 @@ const stockpickerWorkflow = createWorkflow({
     value: (outputs) => outputs["run-crewai-step"].success,
     schema: z.boolean()
   },
+  workflowCompleted: {
+    value: (outputs) => outputs["completion-step"].completed,
+    schema: z.boolean()
+  },
   finalMessage: {
     value: (outputs) => {
       return `Data Pipeline: ${outputs["run-data-pipeline-step"].message}. CrewAI: ${outputs["run-crewai-step"].message}`;
     },
     schema: z.string()
   },
+  completionMessage: {
+    value: (outputs) => outputs["completion-step"].completionMessage,
+    schema: z.string()
+  },
   totalExecutionTime: {
     value: (outputs) => {
       const pipelineOutput = outputs["run-data-pipeline-step"];
       const crewAIOutput = outputs["run-crewai-step"];
+      const completionOutput = outputs["completion-step"];
       if (pipelineOutput.executionTime && crewAIOutput.executionTime) {
         const pipelineTimeStr = pipelineOutput.executionTime || "0 minutes";
         const crewAITimeStr = crewAIOutput.executionTime || "0 minutes";
+        const completionTimeStr = completionOutput.completionTime || "0 minutes";
         const pipelineTime = parseFloat(pipelineTimeStr.split(" ")[0]) || 0;
         const crewAITime = parseFloat(crewAITimeStr.split(" ")[0]) || 0;
-        return `${(pipelineTime + crewAITime).toFixed(2)} minutes`;
+        const completionTime = parseFloat(completionTimeStr.split(" ")[0]) || 0;
+        return `${(pipelineTime + crewAITime + completionTime).toFixed(2)} minutes`;
       }
       return "unknown";
     },

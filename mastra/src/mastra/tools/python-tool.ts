@@ -6,7 +6,7 @@ import { config } from 'dotenv';
 config();
 
 const inputSchema = z.object({
-  command: z.enum(['run']).default('run').describe("Command options for CrewAI tool.")
+  scriptCommand: z.enum(['run-data-pipeline', 'test-logging', 'run-crewai']).describe("Command options for python tool.")
 });
 
 const outputSchema = z.object({
@@ -15,28 +15,35 @@ const outputSchema = z.object({
   details: z.record(z.string(), z.any()).optional(),
 });
 
+const scriptPaths: Record<string, string> = {
+  'run-data-pipeline': process.env.PY_PIPELINE_PATH ?? '',
+  'test-logging': process.env.PY_PIPELINE_PATH ?? '',
+  'run-crewai': process.env.PY_CREW_AI_PATH ?? ''
+};
+
 let currentExecution: Promise<z.infer<typeof outputSchema>> | null = null;
 
-const executeCrewAI = async (params: z.infer<typeof inputSchema>): Promise<z.infer<typeof outputSchema>> => {
+const executePython = async (params: z.infer<typeof inputSchema>): Promise<z.infer<typeof outputSchema>> => {
   if (currentExecution) {
     return currentExecution; // Wait for the ongoing execution to complete
   }
 
   currentExecution = new Promise(async (resolve) => {
     try {
-      const { command } = params;
+      const { scriptCommand } = params;
 
-      const crewAIPath = process.env.PY_CREW_AI_PATH;
+      const scriptPath = scriptPaths[scriptCommand];
+      const resolvedScriptPath = scriptPath;
 
-      if (!crewAIPath) {
-        throw new Error('PY_CREW_AI_PATH is not set in .env');
+      if (!resolvedScriptPath) {
+        throw new Error('Script path is not specified missing .env variable');
       }
 
       console.log(`params: ${JSON.stringify(params)}`);
-      console.log(`[CrewAITool] Executing command: ${command} in directory: ${crewAIPath}`);
+      console.log(`[PythonTool] Executing script: ${resolvedScriptPath} with command: ${scriptCommand}`);
 
-      const child = spawn("crewai", [command], {
-        cwd: crewAIPath, // Set the working directory to PY_CREW_AI_PATH
+      const args = ["-u", resolvedScriptPath, scriptCommand]; // -u = unbuffered stdout
+      const child = spawn("python", args, {
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -46,12 +53,12 @@ const executeCrewAI = async (params: z.infer<typeof inputSchema>): Promise<z.inf
 
       child.stdout.on("data", (data) => {
         stdoutBuffer += data.toString();
-        process.stdout.write(`[CrewAI stdout] ${data}`);
+        process.stdout.write(`[Python stdout] ${data}`);
       });
 
       child.stderr.on("data", (data) => {
         stderrBuffer += data.toString();
-        process.stderr.write(`[CrewAI stderr] ${data}`);
+        process.stderr.write(`[Python stderr] ${data}`);
       });
 
       const startTime = Date.now();
@@ -63,16 +70,17 @@ const executeCrewAI = async (params: z.infer<typeof inputSchema>): Promise<z.inf
             resolveChild(undefined);
             resolve({
               success: true,
-              message: "CrewAI command executed successfully",
+              message: "Python script executed successfully",
               details: {
-                command,
+                scriptPath: resolvedScriptPath,
+                command: scriptCommand,
                 stdout: stdoutBuffer.split("\n"), // Store each line as an array entry
                 stderr: stderrBuffer.split("\n"),
                 executionTime: `${((endTime - startTime) / 60000).toFixed(2)} minutes`,
               },
             });
           } else {
-            rejectChild(new Error(`CrewAI exited code=${code} signal=${signal ?? "none"}`));
+            rejectChild(new Error(`Python exited code=${code} signal=${signal ?? "none"}`));
           }
         });
       });
@@ -90,12 +98,12 @@ const executeCrewAI = async (params: z.infer<typeof inputSchema>): Promise<z.inf
   return currentExecution;
 };
 
-export const crewaiTool = createTool({
-  id: 'crewai-tool',
-  description: 'Execute CrewAI commands',
+export const pythonTool = createTool({
+  id: 'python-tool',
+  description: 'Execute data pipeline commands and crew AI commands using Python scripts.',
   inputSchema,
   outputSchema,
   execute: async ({ context }) => {
-    return executeCrewAI(context); // Directly await the result of executeCrewAI
+    return executePython(context); // Directly await the result of executePython
   },
 });
