@@ -1,7 +1,10 @@
+
+import os
+from dotenv import load_dotenv
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai_tools import SerperDevTool, FileReadTool
-from stockpicker_agents.tools import TickerAnalyticsLookupTool, StockScreenerTool, ReportArchiveTool
+from tools import TickerAnalyticsLookupTool, StockScreenerTool, ReportArchiveTool
 from crewai import LLM
 
 # If you want to run a snippet of code before or after the crew starts, 
@@ -21,13 +24,15 @@ class StockpickerAgents():
 
 	# Create tools
 	search_tool = SerperDevTool()
-	stocks_owned = FileReadTool(file_path="data/stocks_owned.csv")
-	account_details = FileReadTool(file_path="data/account_details.csv")
+	load_dotenv()
+	LOCAL_DATA_DIR = os.environ.get("LOCAL_DATA_DIR")
+	stocks_owned = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/stocks_owned.csv")
+	account_details = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/account_details.csv")
 
-	screen_report = FileReadTool(file_path="data/screen_report.md")
-	technical_report = FileReadTool(file_path="data/technical_report.md")
-	fundamental_report = FileReadTool(file_path="data/fundamental_report.md")
-	portfolio_report = FileReadTool(file_path="data/portfolio_report.md")
+	screen_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/screen_report.md")
+	technical_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/technical_report.md")
+	fundamental_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/fundamental_report.md")
+	portfolio_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/portfolio_report.md")
 	
 
 	ticker_analytics_lookup = TickerAnalyticsLookupTool()
@@ -35,7 +40,7 @@ class StockpickerAgents():
 	report_archive_tool = ReportArchiveTool()
 
 	agent_llm = LLM(model="openai/gpt-4o-mini", # call model by provider/model_name
-		   	  temperature=0.1, max_tokens=16384, top_p=0.9, frequency_penalty=0.1, presence_penalty=0.1, stop=["END"],seed=42)
+			  temperature=0.1, max_tokens=16384, top_p=0.9, frequency_penalty=0.1, presence_penalty=0.1, stop=["END"],seed=42)
 	
 	@agent
 	def stock_screener(self) -> Agent:

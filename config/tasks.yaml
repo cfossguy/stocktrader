@@ -61,7 +61,7 @@ etf_analysis:
     Detailed research of the bond ETF ticker: JPST.
     Detailed research of the for SP500 ETF ticker: SPY.
     Detailed research of the for Russell 2000 ETF ticker: IWM.
-    Provide an opinion on what the portfolio weighting of ETFs should be based on technical trends(ex: overweight JPST when QQQ is overbought).
+    Provide an opinion on what the portfolio weighting of ETFs should be based on technical trends(ex: JPST can be 80% when QQQ is overbought).
   expected_output: >
     Summarize research findings for QQQ.
     Summarize research findings for JPST.

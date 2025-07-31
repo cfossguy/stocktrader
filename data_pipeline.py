@@ -36,7 +36,7 @@ if None in [ELASTIC_SEARCH_URL, ES_API_KEY, POLYGON_API_KEY, OPENAI_API_KEY]:
 
 def logging_setup_func():
     logger = logging.getLogger("ray")
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     logger.handlers.clear()
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s -- %(message)s')
     stream_handler = logging.StreamHandler(stream=sys.stdout)  # Use sys.stdout instead of default sys.stderr
@@ -276,7 +276,19 @@ def elastic_bulk_load():
 
 @app.command()
 @catch_exceptions
-def restart_ray():
+def start_ray():
+    command = ["ray", "start", "--head", "--dashboard-port=8080"]
+    env = os.environ.copy()
+    env["RAY_DISABLE_TPU_DETECTION"] = "1"
+    result = subprocess.run(command, capture_output=True, text=True, env=env)
+    if result.returncode == 0:
+        logger.info("RAY: started successfully")
+    else:
+        logger.info("RAY: failed to start. It's probably already running or a permissions issue.")
+
+@app.command()
+@catch_exceptions
+def stop_ray():
     command = ["ray", "stop"]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode == 0:
@@ -285,16 +297,10 @@ def restart_ray():
     else:
         logger.info("RAY: failed to stop")
         logger.info(result.stderr)
-    command = ["ray", "start", "--head", "--dashboard-port=8080"]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode == 0:
-        logger.info("RAY: started successfully")
-    else:
-        logger.info("RAY: failed to start. It's probably already running or a permissions issue.")
 
 @app.command()
 def run_data_pipeline():
-    restart_ray()
+    start_ray()
     ray.init(address='auto', ignore_reinit_error=True, runtime_env={"env_vars": {
         "ELASTIC_SEARCH_URL": ELASTIC_SEARCH_URL,
         "ES_API_KEY": ES_API_KEY,
@@ -307,6 +313,7 @@ def run_data_pipeline():
 
     ray.get(generate_analytics_json_sp500.remote())
     insert_jsonl_to_elastic("ticker_analytics")
+    stop_ray()
     
 @app.command()
 def test_logging():

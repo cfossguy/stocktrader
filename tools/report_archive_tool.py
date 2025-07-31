@@ -27,7 +27,6 @@ class ReportArchiveTool(BaseTool):
             csv_reader = csv.DictReader(csv_file)
             for row in csv_reader:
                 data.append(row)
-        
         json_data = json.dumps(data, indent=4)
         return json.loads(json_data)
     
@@ -50,16 +49,21 @@ class ReportArchiveTool(BaseTool):
     def _run(self) -> str:
         ELASTIC_SEARCH_URL = os.getenv('ELASTIC_SEARCH_URL')
         ES_API_KEY = os.getenv('ES_API_KEY')
+        LOCAL_DATA_DIR = os.getenv('LOCAL_DATA_DIR')
         elastic_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY, request_timeout=120)
-        screen_report = self.get_report("data/screen_report.md")
-        technical_report = self.get_report("data/technical_report.md")
-        fundamental_report = self.get_report("data/fundamental_report.md")
-        portfolio_report = self.get_report("data/portfolio_report.md")
-        final_report = self.get_report("data/final_report.md")
-        etf_report = self.get_report("data/etf_report.md")
 
-        stocks_owned = self.csv_to_json("data/stocks_owned.csv")
-        account_details = self.csv_to_json("data/account_details.csv")
+        def data_path(filename):
+            return os.path.join(LOCAL_DATA_DIR, filename)
+
+        screen_report = self.get_report(data_path("screen_report.md"))
+        technical_report = self.get_report(data_path("technical_report.md"))
+        fundamental_report = self.get_report(data_path("fundamental_report.md"))
+        portfolio_report = self.get_report(data_path("portfolio_report.md"))
+        final_report = self.get_report(data_path("final_report.md"))
+        etf_report = self.get_report(data_path("etf_report.md"))
+
+        stocks_owned = self.csv_to_json(data_path("stocks_owned.csv"))
+        account_details = self.csv_to_json(data_path("account_details.csv"))
         archive_date = self.get_current_date()
 
         print(f"Archiving report details for {archive_date}...")
@@ -69,7 +73,6 @@ class ReportArchiveTool(BaseTool):
         for acct in account_details:
             cash_position_usd = cash_position_usd + float(acct["cash_position_usd"])
             stock_position_usd = stock_position_usd + float(acct["stock_position_usd"])
-        
         account_balance = cash_position_usd + stock_position_usd
 
         stock_picker_agent_doc = {

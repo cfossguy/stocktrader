@@ -1,3 +1,0 @@
-- Top Stocks Owned SELL Candidates: AIG, CI, PGR, STE
-- Top Stocks Owned and Screen Report BUY Candidates: HON, PKG, TRGP, VRTX, PAYX, ALL, DRI, KO, CB, DGX, WMB
-- Rationale for each BUY and SELL recommendation is provided above based on technical indicators and news sentiment analysis for each stock owned and the screen report candidates.
