@@ -55,12 +55,12 @@ class ReportArchiveTool(BaseTool):
         def data_path(filename):
             return os.path.join(LOCAL_DATA_DIR, filename)
 
-        screen_report = self.get_report(data_path("screen_report.md"))
-        technical_report = self.get_report(data_path("technical_report.md"))
-        fundamental_report = self.get_report(data_path("fundamental_report.md"))
-        portfolio_report = self.get_report(data_path("portfolio_report.md"))
-        final_report = self.get_report(data_path("final_report.md"))
-        etf_report = self.get_report(data_path("etf_report.md"))
+        screen_report = self.get_report("crewai/screen_report.md")
+        technical_report = self.get_report("crewai/technical_report.md")
+        fundamental_report = self.get_report("crewai/fundamental_report.md")
+        portfolio_report = self.get_report("crewai/portfolio_report.md")
+        final_report = self.get_report("crewai/final_report.md")
+        etf_report = self.get_report("crewai/etf_report.md")
 
         stocks_owned = self.csv_to_json(data_path("stocks_owned.csv"))
         account_details = self.csv_to_json(data_path("account_details.csv"))

@@ -6,11 +6,10 @@ import os
 import warnings
 import datetime
 import typer
+from dotenv import load_dotenv
 
 # Ensure src is in sys.path for stockpicker_agents import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-
-import crew
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
@@ -18,7 +17,7 @@ WORKFLOW = "STOCK PICKER AGENTS"
 DATE = datetime.datetime.now().strftime("%m-%d-%Y")
 
 app = typer.Typer()
-
+ 
 @app.command()
 def run_crewai():
     """

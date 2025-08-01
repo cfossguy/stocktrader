@@ -8,7 +8,7 @@ stock_screen:
   expected_output: >
     Top BUY candidates based on the combined technical and fundamental signals.
   agent: stock_screener
-  output_file: data/screen_report.md
+  output_file: crewai/screen_report.md
 
 technical_analysis:
   description: >
@@ -26,7 +26,7 @@ technical_analysis:
     Top stocks_owned and screen_report BUY candidates based on technical signals.
     Rationale for each BUY and SELL recommendation.
   agent: technical_analyst
-  output_file: data/technical_report.md
+  output_file: crewai/technical_report.md
 
 fundamental_analysis:
   description: >
@@ -44,7 +44,7 @@ fundamental_analysis:
     Top stocks_owned and screen_report BUY candidates based on fundamental signals.
     Rationale for each BUY and SELL recommendation.
   agent: fundamental_analyst
-  output_file: data/fundamental_report.md
+  output_file: crewai/fundamental_report.md
 
 etf_analysis:
   description: > 
@@ -69,7 +69,7 @@ etf_analysis:
     Summarize research findings for IWM.
     Summarize research findings for portfolio weighting opinion.
   agent: etf_analyst
-  output_file: data/etf_report.md
+  output_file: crewai/etf_report.md
 
 portfolio_adjustments:
   description: >
@@ -84,7 +84,7 @@ portfolio_adjustments:
     Breakdown of portfolio percantage by industry/sector.
     Breakdown BUY and SELL adjustments.
   agent: portfolio_manager
-  output_file: data/portfolio_report.md
+  output_file: crewai/portfolio_report.md
 
 final_report:
   description: >
@@ -100,7 +100,7 @@ final_report:
     Final report should have breakdown of portfolio percantage by industry/sector.
     Final report should have breakdown BUY and SELL adjustments.
   agent: report_analyst
-  output_file: data/final_report.md
+  output_file: crewai/final_report.md
 
 archive_report:
   description: >

@@ -18,4 +18,4 @@ const weatherTool = createTool({
 });
 
 export { weatherTool };
-//# sourceMappingURL=f44cd6f2-f141-46e1-b7a3-96eb8cd7bf59.mjs.map
+//# sourceMappingURL=a67ea178-fd1b-467a-bda2-6f5f3be7b895.mjs.map
