@@ -142,4 +142,4 @@ s3/**
 
 mastra/node_modules/
 mastra/.env
-mastra/.mastra
+mastra/.mastra/
