@@ -17,7 +17,8 @@ flowchart TB
     subgraph A1[Task: stock_screen]
       direction TB
       AG1[Agent: stock_screener]:::agent --> TOOL_SS[(StockScreenerTool)]:::tool
-      TOOL_SS --> OUT_SR[screen_report.md\nTop 10 BUY candidates]:::file
+      TOOL_SS --> OUT_SR[screen_report.md
+      Top 10 BUY candidates]:::file
     end
     T1[Run stock_screen]:::action --> A1 --> T2
 
@@ -27,7 +28,8 @@ flowchart TB
       AG2[Agent: etf_analyst]:::agent --> TOOL_SR1[(FileReadTool: screen_report.md)]:::tool
       AG2 --> TOOL_SO1[(FileReadTool: stocks_owned.csv)]:::tool
       AG2 --> TOOL_TA1[(TickerAnalyticsLookupTool: JPST, QQQ, SPY, IWM, VIX)]:::tool
-      TOOL_TA1 --> OUT_ER[etf_report.md\nFindings for QQQ/JPST/SPY/IWM, Weighting opinion]:::file
+      TOOL_TA1 --> OUT_ER[etf_report.md
+      Findings for QQQ/JPST/SPY/IWM, Weighting opinion]:::file
     end
     T2[Run etf_analysis]:::action --> A2 --> T3
 
@@ -37,7 +39,7 @@ flowchart TB
       AG3[Agent: technical_analyst]:::agent --> TOOL_SO2[(FileReadTool: stocks_owned.csv)]:::tool
       AG3 --> TOOL_SR2[(FileReadTool: screen_report.md)]:::tool
       AG3 --> TOOL_TA2[(TickerAnalyticsLookupTool: RSI/MACD/SMA, News)]:::tool
-      TOOL_TA2 --> OUT_TR[technical_report.md\nSELL/BUY candidates, Rationale]:::file
+      TOOL_TA2 --> OUT_TR[technical_report.md SELL/BUY candidates, Rationale]:::file
     end
     T3[Run technical_analysis]:::action --> A3 --> T4
 
@@ -47,21 +49,21 @@ flowchart TB
       AG4[Agent: fundamental_analyst]:::agent --> TOOL_SO3[(FileReadTool: stocks_owned.csv)]:::tool
       AG4 --> TOOL_SR3[(FileReadTool: screen_report.md)]:::tool
       AG4 --> TOOL_TA3[(TickerAnalyticsLookupTool: Fundamentals, News)]:::tool
-      TOOL_TA3 --> OUT_FR[fundamental_report.md\nSELL/BUY candidates, Rationale]:::file
+      TOOL_TA3 --> OUT_FR[fundamental_report.mdSELL/BUY candidates, Rationale]:::file
     end
     T4[Run fundamental_analysis]:::action --> A4 --> T5
 
     %% Task 5: Portfolio Adjustments
-    subgraph A5[Task: portfolio_adjustments]
+    subgraph A5[Task:portfolio_adjustments]
       direction TB
-  AG5["Agent: portfolio_manager<br>Task: portfolio_adjustments"]:::agent --> TOOL_SO4[(FileReadTool: stocks_owned.csv)]:::tool
+  AG5["Agent: portfolio_manager"]:::agent --> TOOL_SO4[(FileReadTool: stocks_owned.csv)]:::tool
       AG5 --> TOOL_AD[(FileReadTool: account_details.csv)]:::tool
       AG5 --> TOOL_TR[(FileReadTool: technical_report.md)]:::tool
       AG5 --> TOOL_FR[(FileReadTool: fundamental_report.md)]:::tool
       AG5 --> TOOL_TA4[(TickerAnalyticsLookupTool)]:::tool
       TOOL_TR --> AG5
       TOOL_FR --> AG5
-      AG5 --> OUT_PR[portfolio_report.md\n% by company, sector, BUY/SELL adjustments]:::file
+      AG5 --> OUT_PR[portfolio_report.md % by company, sector, BUY/SELL adjustments]:::file
     end
     T5[Run portfolio_adjustments]:::action --> A5 --> T6
 
@@ -76,7 +78,7 @@ flowchart TB
       TOOL_TR2 --> AG6
       TOOL_FR2 --> AG6
       TOOL_PR --> AG6
-      AG6 --> OUT_FRPT[final_report.md\nBUY/SELL sections, rationale, % by company/sector, adjustments]:::file
+      AG6 --> OUT_FRPT[final_report.md BUY/SELL sections, rationale, % by company/sector, adjustments]:::file
     end
     T6[Run final_report]:::action --> A6 --> T7
 
