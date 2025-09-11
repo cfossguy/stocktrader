@@ -54,7 +54,7 @@ flowchart TB
     %% Task 5: Portfolio Adjustments
     subgraph A5[Task: portfolio_adjustments]
       direction TB
-      AG5[Agent: portfolio_manager]:::agent --> TOOL_SO4[(FileReadTool: stocks_owned.csv)]:::tool
+  AG5["Agent: portfolio_manager<br>Task: portfolio_adjustments"]:::agent --> TOOL_SO4[(FileReadTool: stocks_owned.csv)]:::tool
       AG5 --> TOOL_AD[(FileReadTool: account_details.csv)]:::tool
       AG5 --> TOOL_TR[(FileReadTool: technical_report.md)]:::tool
       AG5 --> TOOL_FR[(FileReadTool: fundamental_report.md)]:::tool
