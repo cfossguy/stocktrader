@@ -31,69 +31,210 @@ def create_ticker_analytics_search_template():
             "lang": "mustache",
             "source": {
                 "size": 100,
-                "_source": ["ticker", "name", "sector", "industry", "beta", "market_cap", "dividend_yield", "rsi_hour", "rsi_day", "rsi_week", "macd_hour", "macd_day", "macd_week", "sma_hour", "pe"],
-                "query": {
-                    "bool": {
-                        "filter": [
-                            {
-                                "range": {
-                                    "rsi_day": {
-                                        "gt": "{{rsi_day_gt}}",
-                                        "lt": "{{rsi_day_lt}}"
+                "_source": ["ticker", "name", "sector", "industry", "beta", "market_cap", "dividend_yield", "rsi_hour", "rsi_day", "rsi_week", "macd_hour", "macd_day", "macd_week", "sma_hour", "pe", "macd_rank", "rsi_rank", "news_rank"],
+                "retriever": {
+                    "linear": {
+                        "rank_window_size": 1000,
+                        "filter": {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "range": {
+                                            "rsi_day": {
+                                                "gt": "{{rsi_day_gt}}",
+                                                "lt": "{{rsi_day_lt}}"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "range": {
+                                            "macd_week": {
+                                                "gt": "{{macd_week_gt}}",
+                                                "lt": "{{macd_week_lt}}"
+                                            }
+                                        }
                                     }
-                                }
+                                ]
+                            }
+                        },
+                        "retrievers": [
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "rank_feature": {
+                                                "field": "rsi_rank"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.4
                             },
                             {
-                                "range": {
-                                    "macd_week": {
-                                        "gt": "{{macd_week_gt}}",
-                                        "lt": "{{macd_week_lt}}"
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "rank_feature": {
+                                                "field": "macd_rank"
+                                            }
+                                        }
                                     }
-                                }
+                                },
+                                "weight": 0.4
+                            },
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "rank_feature": {
+                                                "field": "news_rank"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.2
                             }
-                        ],
-                        "should": [
-                        {
-                            "rank_feature": {
-                                "field": "rsi_rank",
-                                "boost": 10
-                            }
-                        },
-                        {
-                            "rank_feature": {
-                                "field": "macd_rank",
-                                "boost": 10
-                            }
-                        },
-                        {
-                            "rank_feature": {
-                                "field": "news_rank",
-                                "boost": 5
-                            }
-                        }
-                    ]
+                        ]
                     }
-                },
-                "sort": 
-                [
-                    {
-                        "timestamp": {
-                            "order": "desc"
-                        }
-                    },
-                    {
-                        "_score": {
-                            "order": "desc"
-                        }
-                    }  
-                ]
+                }
             }
         }
     }
 
+@catch_exceptions
+def create_stockpicker_search_template():
+    es_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY)
+    script_template = {
+        "script": {
+            "lang": "mustache",
+            "source": """
+            {
+                {{#semantic}}
+                "size": {{size}},
+                "_source": ["date"],
+                "retriever": {
+                    "linear": {
+                        "rank_window_size": 100,
+                        "retrievers": [
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "semantic": {
+                                                "field": "final_report_semantic",
+                                                "query": "{{query}}"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.6
+                            },
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "semantic": {
+                                                "field": "fundamental_report_semantic",
+                                                "query": "{{query}}"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.1
+                            },
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "semantic": {
+                                                "field": "portfolio_report_semantic",
+                                                "query": "{{query}}"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.1
+                            },
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "semantic": {
+                                                "field": "screen_report_semantic",
+                                                "query": "{{query}}"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.1
+                            },
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "semantic": {
+                                                "field": "technical_report_semantic",
+                                                "query": "{{query}}"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.1
+                            }
+                        ]
+                    }
+                },
+                "highlight": {
+                    "fields": {
+                        "final_report_semantic": {
+                            "type": "semantic",
+                            "number_of_fragments": 2,
+                            "order": "score"
+                        },
+                        "fundamental_report_semantic": {
+                            "type": "semantic",
+                            "number_of_fragments": 2,
+                            "order": "score"
+                        },
+                        "portfolio_report_semantic": {
+                            "type": "semantic",
+                            "number_of_fragments": 2,
+                            "order": "score"
+                        },
+                        "screen_report_semantic": {
+                            "type": "semantic",
+                            "number_of_fragments": 2,
+                            "order": "score"
+                        },
+                        "technical_report_semantic": {
+                            "type": "semantic",
+                            "number_of_fragments": 2,
+                            "order": "score"
+                        }
+                    }
+                }
+                {{/semantic}}
+                {{^semantic}}
+                "_source": ["date", "screen_report", "portfolio_report", "technical_report", "fundamental_report", "final_report", "cash_position_usd", "stock_position_usd", "account_balance", "stocks_owned"],
+                "query": {
+                    "match_all": {}
+                },
+                "sort": [
+                    {
+                        "date": {
+                            "order": "desc"
+                        }
+                    }
+                ]
+                {{/semantic}}
+            }
+            """
+        }
+    }
+
     # Index the script template
-    response = es_client.put_script(id='ticker_analytics_template', body=script_template)
-    print(f"ELASTICSEARCH: Create ticker_analytics search template: {response}")
+    response = es_client.put_script(id='stockpicker_agent_template', body=script_template)
+    print(f"ELASTICSEARCH: Create stockpicker_agent search template: {response}")
 
 @catch_exceptions
 def create_stockpicker_agent_index():
@@ -306,13 +447,15 @@ def create_ticker_llm_metrics_index():
 
 @app.command()
 def update_settings():
-    update_ticker_analytics_index()
+    # update_ticker_analytics_index()
     create_ticker_analytics_search_template()
+    create_stockpicker_search_template()
 
 @app.command()
 def setup_elastic():
     create_ticker_analytics_index()
     create_ticker_analytics_search_template()
+    create_stockpicker_search_template()
     create_ticker_llm_metrics_index()
     create_stockpicker_agent_index()
 
@@ -397,14 +540,8 @@ def stop_ray():
         print(result.stderr)
 
 @app.command()
-def setup():
-    setup_elastic()
-    start_ray()
-
-@app.command()
 def teardown():
     teardown_elastic()
-    stop_ray()
 
 # Example usage:
 if __name__ == "__main__":

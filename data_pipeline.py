@@ -101,7 +101,11 @@ def add_etf_list(stocks_frame):
 
 def fetch_sp500_list():
     url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    response = requests.get(url, verify=False)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
+    }
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
     content = response.content
     tables = pd.read_html(content)
     stocks_frame = tables[0]  # The first table on the page is the S&P 500 list
@@ -113,7 +117,7 @@ def fetch_sp500_list():
         stocks_frame = stocks_frame.head(3)
 
     return stocks_frame
-
+    
 @ray.remote
 def get_triple_screen_median_remote(ticker, indicator, timespan):
     return market_analytics.get_triple_screen_median(ticker=ticker, indicator=indicator, timespan=timespan)

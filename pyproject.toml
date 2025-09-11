@@ -28,7 +28,8 @@ dependencies = [
     "fast-agent-mcp>=0.2.45",
     "setuptools>=80.9.0",
     "crewai>=0.152.0",
-    "crewai_tools>=0.1.0"
+    "crewai_tools>=0.1.0",
+    "html5lib (>=1.1,<2.0)"
 ]
 
 
