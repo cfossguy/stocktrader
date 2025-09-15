@@ -44,5 +44,10 @@ Open: http://localhost:4111/agents then click "Commander"
 ./start.sh
 ```
 
+## run stockpicker workflow
+## what stocks should i buy/sell today?
+## do any buy candidates show up as sell in last 10 reports?
+## can you run a semantic search for telco stocks with a good dividend yield?
+
 
 

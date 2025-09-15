@@ -1,9 +1,9 @@
 import { Mastra } from "@mastra/core/mastra";
-import { crewaiAgent } from "./agents/crewai-agent";
+import { commanderAgent } from "./agents/commander-agent";
 import { stockpickerWorkflow } from "./workflows/stockpicker-workflow";
 
  
 export const mastra = new Mastra({
-  agents: { crewaiAgent },
+  agents: { commanderAgent },
   workflows: { stockpickerWorkflow }
 });

@@ -84,19 +84,10 @@ def add_etf_list(stocks_frame):
     # add ETFs that should be included in the list
     stocks_frame = add_stock_record(stocks_frame, 'VIX', 'CBOE Market Volitility', 'VIX', 'VIX')
     stocks_frame = add_stock_record(stocks_frame, 'JPST', 'JPMorgan Ultra-Short Income ETF', 'Bond Fund', 'Conservative')
-
     stocks_frame = add_stock_record(stocks_frame, 'QQQ', 'Tech Sector ETF', 'Technology', 'Technology')
-    stocks_frame = add_stock_record(stocks_frame, 'TQQQ', 'Tech Sector Inverse ETF - 3x+', 'Technology - Long', 'Technology')
-    stocks_frame = add_stock_record(stocks_frame, 'SQQQ', 'Tech Sector Inverse ETF - 3x-', 'Technology - Short', 'Technology')
-
     stocks_frame = add_stock_record(stocks_frame, 'SPY', 'SP500 ETF', 'SP500', 'SP500')
-    stocks_frame = add_stock_record(stocks_frame, 'UPRO', 'SP500 ETF Inverse ETF - 3x+', 'SP500 - Long', 'SP500')
-    stocks_frame = add_stock_record(stocks_frame, 'SPXU', 'SP500 ETF Inverse ETF - 3x-', 'SP500 - Short', 'SP500')
-    
     stocks_frame = add_stock_record(stocks_frame, 'IWM', 'iShares Russell 2000 ETF', 'Broad Market', 'Moderate Risk')
-    stocks_frame = add_stock_record(stocks_frame, 'URTY', 'UltraPro Russell 2000 - 3x+', 'Broad Market - Long', 'High Risk')
-    stocks_frame = add_stock_record(stocks_frame, 'SRTY', 'UltraPro Russell 2000 - 3x-', 'Broad Market - Short', 'High Risk')
-
+   
     return stocks_frame
 
 def fetch_sp500_list():
@@ -139,16 +130,20 @@ def get_pe_remote(ticker):
     return market_analytics.get_pe(ticker=ticker)
 
 @ray.remote
-def generate_news_summary_remote(ticker, news):
-    return llm.generate_news_summary(ticker, news)
-
-@ray.remote
-def generate_news_rank_remote(ticker, news):
-    return llm.generate_news_rank(ticker, news)
-
-@ray.remote
 def get_news_remote(ticker):
     return market_analytics.get_news(ticker)
+
+@ray.remote
+def get_financials_remote(ticker):
+    return market_analytics.get_financials(ticker)
+
+@ray.remote
+def generate_fundamentals_summary_and_rank_remote(ticker, fundamentals):
+    return llm.generate_fundamentals_summary_and_rank(ticker, fundamentals)
+
+@ray.remote
+def generate_news_summary_and_rank_remote(ticker, news):
+    return llm.generate_news_summary_and_rank(ticker, news)
 
 @ray.remote(num_cpus=12)
 def generate_analytics_json_sp500():
@@ -215,29 +210,48 @@ def generate_analytics_json_sp500():
         logger.error("An exception occurred processing polygon data", exc_info=True)
 
     try:
-        logger.info("Adding GPT-4 news summaries")
-        news_summary_futures = stocks_frame.apply(
-            lambda row: generate_news_summary_remote.remote(
+        logger.info("Adding GPT-4 news summaries and ranks")
+        news_summary_and_rank_futures = stocks_frame.apply(
+            lambda row: generate_news_summary_and_rank_remote.remote(
                 ticker=row.ticker.strip(), 
                 news=get_news_remote.remote(ticker=row.ticker.strip())
             ), 
             axis=1
         ).tolist()
-        
-        stocks_frame['news_summary'] = ray.get(news_summary_futures)
 
-        logger.info("Adding GPT-4 news ranks")
-        news_rank_futures = stocks_frame.apply(
-            lambda row: generate_news_rank_remote.remote(
-                ticker=row.ticker.strip(), 
-                news=get_news_remote.remote(ticker=row.ticker.strip())
-            ), 
-            axis=1
-        ).tolist()
-        stocks_frame['news_rank'] = ray.get(news_rank_futures)
+        news_summary_and_rank_results = ray.get(news_summary_and_rank_futures)
+
+        # Extract 'summary' and add to the DataFrame
+        stocks_frame['news_summary'] = [result['summary'] for result in news_summary_and_rank_results]
+
+        # Add 'news_rank' only if the result is not None
+        stocks_frame['news_rank'] = [result['rank'] if result['rank'] is not None else None for result in news_summary_and_rank_results]
+
         logger.info("GPT-4 news summaries and ranks added for all tickers")
     except Exception as e: 
         logger.error("An exception occurred generating news sentiment", exc_info=True)
+
+    try:
+        logger.info("Adding GPT-4 fundamentals summaries and ranks")
+        fundamentals_summary_and_rank_futures = stocks_frame.apply(
+            lambda row: generate_fundamentals_summary_and_rank_remote.remote(
+                ticker=row.ticker.strip(), 
+                fundamentals=get_financials_remote.remote(ticker=row.ticker.strip())
+            ), 
+            axis=1
+        ).tolist()
+
+        fundamentals_summary_and_rank_results = ray.get(fundamentals_summary_and_rank_futures)
+
+        # Extract 'summary' and 'rank' from the results and add them to the DataFrame
+        stocks_frame['fundamentals_summary'] = [result['summary'] for result in fundamentals_summary_and_rank_results]
+
+        # Add 'fundamentals_rank' only if the result is not None
+        stocks_frame['fundamentals_rank'] = [result['rank'] if result['rank'] is not None else None for result in fundamentals_summary_and_rank_results]
+
+        logger.info("GPT-4 fundamentals summaries and ranks added for all tickers")
+    except Exception as e: 
+        logger.error("An exception occurred generating fundamentals sentiment", exc_info=True)
 
     try:
         stocks_frame.to_json(ticker_analytics_datafile, orient='records', lines=True)

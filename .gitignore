@@ -143,3 +143,5 @@ s3/**
 mastra/node_modules/
 mastra/.env
 mastra/.mastra/** 
+data/account_details.csv
+data/stocks_owned.csv

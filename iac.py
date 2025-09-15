@@ -31,7 +31,7 @@ def create_ticker_analytics_search_template():
             "lang": "mustache",
             "source": {
                 "size": 100,
-                "_source": ["ticker", "name", "sector", "industry", "beta", "market_cap", "dividend_yield", "rsi_hour", "rsi_day", "rsi_week", "macd_hour", "macd_day", "macd_week", "sma_hour", "pe", "macd_rank", "rsi_rank", "news_rank"],
+                "_source": ["ticker", "name", "sector", "industry", "beta", "market_cap", "dividend_yield", "rsi_hour", "rsi_day", "rsi_week", "macd_hour", "macd_day", "macd_week", "sma_hour", "pe", "macd_rank", "rsi_rank", "news_rank", "news_summary", "fundamentals_rank", "fundamentals_summary"],
                 "retriever": {
                     "linear": {
                         "rank_window_size": 1000,
@@ -68,7 +68,7 @@ def create_ticker_analytics_search_template():
                                         }
                                     }
                                 },
-                                "weight": 0.4
+                                "weight": 0.3
                             },
                             {
                                 "retriever": {
@@ -80,7 +80,7 @@ def create_ticker_analytics_search_template():
                                         }
                                     }
                                 },
-                                "weight": 0.4
+                                "weight": 0.3
                             },
                             {
                                 "retriever": {
@@ -92,7 +92,19 @@ def create_ticker_analytics_search_template():
                                         }
                                     }
                                 },
-                                "weight": 0.2
+                                "weight": 0.1
+                            },
+                            {
+                                "retriever": {
+                                    "standard": {
+                                        "query": {
+                                            "rank_feature": {
+                                                "field": "fundamentals_rank"
+                                            }
+                                        }
+                                    }
+                                },
+                                "weight": 0.3
                             }
                         ]
                     }
@@ -100,6 +112,35 @@ def create_ticker_analytics_search_template():
             }
         }
     }
+
+@catch_exceptions
+def create_ticker_analytics_search_by_ticker_template():
+    es_client = Elasticsearch(hosts=ELASTIC_SEARCH_URL, api_key=ES_API_KEY)
+    script_template = {
+        "script": {
+            "lang": "mustache",
+            "source": """
+            { 
+                "size": {{size}},
+                "query": {
+                    "match": {
+                        "ticker": "{{ticker}}"
+                    }
+                },
+                "sort": [
+                    {
+                        "timestamp": {
+                            "order": "desc"
+                        }
+                    }
+                ]
+            }
+            """
+        }
+    }
+    # Index the script template
+    response = es_client.put_script(id='ticker_analytics_lookup_template', body=script_template)
+    print(f"ELASTICSEARCH: Create ticker_analytics_lookup_template: {response}")
 
 @catch_exceptions
 def create_stockpicker_search_template():
@@ -308,6 +349,10 @@ def create_ticker_analytics_index():
                 "news_rank": {
                     "type": "rank_feature"
                 },
+                "fundamentals_summary": { "type": "text"},
+                "fundamentals_rank": {
+                    "type": "rank_feature"
+                },
                 "macd_day": {
                     "type": "long"
                 },
@@ -399,7 +444,11 @@ def update_ticker_analytics_index():
             },
             "news_rank": {
                 "type": "rank_feature"
-            }
+            },
+            "fundamentals_rank": {
+                "type": "rank_feature"
+            },
+            "fundamentals_summary": { "type": "text"}
         }
     }
 
@@ -447,9 +496,10 @@ def create_ticker_llm_metrics_index():
 
 @app.command()
 def update_settings():
-    # update_ticker_analytics_index()
+    update_ticker_analytics_index()
     create_ticker_analytics_search_template()
     create_stockpicker_search_template()
+    create_ticker_analytics_search_by_ticker_template()
 
 @app.command()
 def setup_elastic():

@@ -60,7 +60,6 @@ class ReportArchiveTool(BaseTool):
         fundamental_report = self.get_report("crewai/fundamental_report.md")
         portfolio_report = self.get_report("crewai/portfolio_report.md")
         final_report = self.get_report("crewai/final_report.md")
-        etf_report = self.get_report("crewai/etf_report.md")
 
         stocks_owned = self.csv_to_json(data_path("stocks_owned.csv"))
         account_details = self.csv_to_json(data_path("account_details.csv"))
@@ -81,7 +80,6 @@ class ReportArchiveTool(BaseTool):
             "fundamental_report": fundamental_report,
             "portfolio_report": portfolio_report,
             "final_report": final_report,
-            "etf_report": etf_report,
             "stocks_owned": stocks_owned,
             "account_details": account_details,
             "cash_position_usd": cash_position_usd,

@@ -11,6 +11,7 @@ import logging
 from dotenv import load_dotenv
 import os
 from polygon import RESTClient
+import re
 
 load_dotenv()
 
@@ -152,9 +153,6 @@ def get_news(ticker):
         logger.debug(f'News for {ticker} has error - {x}. Unknown error polygon.io')
         traceback.print_exc()
         return feed_details
-    
-def yf_sleep():
-    time.sleep(random.uniform(1,3))
 
 def get_market_cap(ticker):
     try:
@@ -199,3 +197,45 @@ def get_dividend_yield(ticker):
     except Exception as e:
         logger.debug(f'dividend yield {ticker} is: N/A because of {e}')
         return None
+    
+def get_financials(ticker):
+    polygon_client = RESTClient(api_key=POLYGON_API_KEY)
+    financials = []
+    def clean_none(obj):
+        # Recursively remove None values, empty containers, and unwanted keys from dicts and objects
+        drop_keys = {'label', 'order', 'unit', 'source_filing_url', 'source_filing_file_url'}
+        if isinstance(obj, dict):
+            cleaned = {k: clean_none(v) for k, v in obj.items() if v is not None and k not in drop_keys}
+            # Flatten dicts that only have a 'value' key
+            for k, v in list(cleaned.items()):
+                if isinstance(v, dict) and set(v.keys()) == {'value'}:
+                    cleaned[k] = v['value']
+            return {k: v for k, v in cleaned.items() if not (isinstance(v, (dict, list, tuple, set)) and not v)}
+        elif hasattr(obj, '__dict__'):
+            cleaned = {k: clean_none(v) for k, v in obj.__dict__.items() if v is not None and k not in drop_keys}
+            for k, v in list(cleaned.items()):
+                if isinstance(v, dict) and set(v.keys()) == {'value'}:
+                    cleaned[k] = v['value']
+            return {k: v for k, v in cleaned.items() if not (isinstance(v, (dict, list, tuple, set)) and not v)}
+        elif isinstance(obj, (list, tuple, set)):
+            t = type(obj)
+            cleaned = t(clean_none(v) for v in obj if v is not None)
+            # Remove empty containers
+            return t(v for v in cleaned if not (isinstance(v, (dict, list, tuple, set)) and not v))
+        else:
+            return obj
+
+    # polygon_client.vx.list_stock_financials returns a paginated iterator and
+    # will continue yielding items across pages even if `limit` is provided as
+    # a per-request page size. To get a single record respect the caller's
+    # intent we only consume the first item from the iterator.
+    it = polygon_client.vx.list_stock_financials(order="desc", limit="4", sort="filing_date", ticker=f"{ticker}")
+    try:
+        for _ in range(4):  # Collect up to 4 financial reports
+            f = next(it)
+            cleaned = clean_none(f)
+            financials.append(cleaned)
+    except StopIteration:
+        # no more financials available for this ticker
+        pass
+    return financials

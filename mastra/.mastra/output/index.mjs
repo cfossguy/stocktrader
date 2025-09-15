@@ -7,7 +7,8 @@ import { openai as openai$2 } from '@ai-sdk/openai';
 import { Agent, MessageList } from '@mastra/core/agent';
 import { Memory as Memory$1 } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
-import { crewaiChatTool } from './tools/1e584179-5163-4a2a-a220-f417504cbe4c.mjs';
+import { crewaiChatTool } from './tools/eada47b0-c3ee-4adf-913d-194c5fe53c89.mjs';
+import { tickerAnalyticsLookupTool } from './tools/f1d488fd-b04f-4818-8694-5d1d746657ff.mjs';
 import { s as stockpickerWorkflowTool, a as stockpickerWorkflow } from './stockpicker-workflow-tool.mjs';
 import crypto$1, { randomUUID } from 'crypto';
 import { readdir, readFile, mkdtemp, rm, writeFile, mkdir, copyFile, stat } from 'fs/promises';
@@ -38,7 +39,7 @@ import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { tools } from './tools.mjs';
 import 'dotenv';
 import '@elastic/elasticsearch';
-import './tools/666433fa-6907-4b6d-ba1c-deb2d699e027.mjs';
+import './tools/66d71626-c3d3-4379-9327-7b4f9045dfb4.mjs';
 
 const memory = new Memory$1({
   storage: new LibSQLStore({
@@ -52,7 +53,7 @@ const memory = new Memory$1({
     lastMessages: 5
   }
 });
-const crewaiAgent = new Agent({
+const commanderAgent = new Agent({
   name: "Commander",
   instructions: `
       You are an intelligent stock analysis assistant that helps users with both historical data analysis and generating new stock reports.
@@ -60,10 +61,12 @@ const crewaiAgent = new Agent({
       Your capabilities include:
       1. **Querying Historical Data**: Use crewaiChatTool to retrieve and analyze past stock reports, portfolio information, and market analysis
       2. **Generating New Reports**: Use stockpickerWorkflowTool to trigger the data pipeline and CrewAI analysis to create fresh stock reports
+      3. **Ticker Analytics Lookup**: Use tickerAnalyticsLookupTool to retrieve analytics data for a specific ticker symbol
 
       When responding to user requests:
       - If the user wants historical data, recent reports, or analysis of past performance, use crewaiChatTool
       - If the user wants to generate new reports, run fresh analysis, or update current data, use stockpickerWorkflowTool
+      - If the user wants to look up analytics for a specific ticker, use tickerAnalyticsLookupTool
       - Always use the appropriate tool based on the user's intent
       - Keep responses concise but informative
       - Only use data provided by the tools - do not make assumptions or use external knowledge
@@ -81,7 +84,8 @@ const crewaiAgent = new Agent({
   memory,
   tools: {
     crewaiChatTool,
-    stockpickerWorkflowTool
+    stockpickerWorkflowTool,
+    tickerAnalyticsLookupTool
   },
   // Configure default options to use streamVNext behavior
   defaultVNextStreamOptions: {
@@ -91,7 +95,7 @@ const crewaiAgent = new Agent({
 
 const mastra = new Mastra({
   agents: {
-    crewaiAgent
+    commanderAgent
   },
   workflows: {
     stockpickerWorkflow

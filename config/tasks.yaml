@@ -46,31 +46,6 @@ fundamental_analysis:
   agent: fundamental_analyst
   output_file: crewai/fundamental_report.md
 
-etf_analysis:
-  description: > 
-    Use stocks_owned tool to see the current ETF holdings. 
-    Use screen_report tool to see current ETF holdings are listed.
-    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for bond ETF ticker: JPST.
-    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for technology ETF ticker: QQQ. 
-    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for SP500 ETF ticker: SPY.
-    Use ticker_analytics_lookup tool to analyze technical signals and news sentiment for Russell 2000 ETF: IWM. 
-    Identify whether VIX has noteworthy technical and news sentiment for JPST(bond ETF), QQQ(tech ETF), SPY(SP500 ETF).
-    Identify the ETFs to buy based on the technical trends news sentiment and proprietary screen.
-    Identify the ETFs to sell based on technical trends news sentiment and proprietary screen.
-    Detailed research of the technology ETF ticker: QQQ.  
-    Detailed research of the bond ETF ticker: JPST.
-    Detailed research of the for SP500 ETF ticker: SPY.
-    Detailed research of the for Russell 2000 ETF ticker: IWM.
-    Provide an opinion on what the portfolio weighting of ETFs should be based on technical trends(ex: JPST can be 80% when QQQ is overbought).
-  expected_output: >
-    Summarize research findings for QQQ.
-    Summarize research findings for JPST.
-    Summarize research findings for SPY.
-    Summarize research findings for IWM.
-    Summarize research findings for portfolio weighting opinion.
-  agent: etf_analyst
-  output_file: crewai/etf_report.md
-
 portfolio_adjustments:
   description: >
     Use stocks_owned tool to lookup stocks_owned list.

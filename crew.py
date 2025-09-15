@@ -70,15 +70,6 @@ class StockpickerAgents():
 		)
 	
 	@agent
-	def etf_analyst(self) -> Agent:
-		return Agent(
-			config=self.agents_config['etf_analyst'],
-			verbose=True,
-			tools=[self.stocks_owned, self.ticker_analytics_lookup, self.screen_report],
-			llm=self.agent_llm
-		)
-	
-	@agent
 	def portfolio_manager(self) -> Agent:
 		return Agent(
 			config=self.agents_config['portfolio_manager'],
@@ -102,12 +93,6 @@ class StockpickerAgents():
 			config=self.tasks_config['stock_screen']
 		)
 	
-	@task
-	def etf_analysis(self) -> Task:
-		return Task(
-			config=self.tasks_config['etf_analysis']
-		)
-
 	@task
 	def technical_analysis(self) -> Task:
 		return Task(
