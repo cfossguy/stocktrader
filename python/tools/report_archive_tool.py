@@ -58,6 +58,7 @@ class ReportArchiveTool(BaseTool):
         screen_report = self.get_report("crewai/screen_report.md")
         technical_report = self.get_report("crewai/technical_report.md")
         fundamental_report = self.get_report("crewai/fundamental_report.md")
+        etf_report = self.get_report("crewai/etf_report.md")
         portfolio_report = self.get_report("crewai/portfolio_report.md")
         final_report = self.get_report("crewai/final_report.md")
 
@@ -79,6 +80,7 @@ class ReportArchiveTool(BaseTool):
             "technical_report": technical_report,
             "fundamental_report": fundamental_report,
             "portfolio_report": portfolio_report,
+            "etf_report": etf_report,
             "final_report": final_report,
             "stocks_owned": stocks_owned,
             "account_details": account_details,
@@ -95,6 +97,6 @@ class ReportArchiveTool(BaseTool):
         )
 
         if response['result'] in ['created', 'updated']:
-            return "Report details archived successfully."
+            return (f"222Report details archived successfully. Response: {response}")
         else:
             raise Exception(f"Failed to archive report details. Response: {response}")

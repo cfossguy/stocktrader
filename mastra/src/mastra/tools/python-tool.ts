@@ -62,28 +62,54 @@ const executePython = async (params: z.infer<typeof inputSchema>): Promise<z.inf
       });
 
       const startTime = Date.now();
-      await new Promise((resolveChild, rejectChild) => {
-        child.on("error", rejectChild);
-        child.on("close", (code, signal) => {
-          const endTime = Date.now();
-          if (code === 0) {
-            resolveChild(undefined);
+        await new Promise((resolveChild) => {
+          child.on("error", (err) => {
             resolve({
-              success: true,
-              message: "Python script executed successfully",
+              success: false,
+              message: `Python process error: ${err.message}`,
               details: {
+                error: err.message,
                 scriptPath: resolvedScriptPath,
                 command: scriptCommand,
-                stdout: stdoutBuffer.split("\n"), // Store each line as an array entry
+                stdout: stdoutBuffer.split("\n"),
                 stderr: stderrBuffer.split("\n"),
-                executionTime: `${((endTime - startTime) / 60000).toFixed(2)} minutes`,
               },
             });
-          } else {
-            rejectChild(new Error(`Python exited code=${code} signal=${signal ?? "none"}`));
-          }
+            resolveChild(undefined);
+          });
+          child.on("close", (code, signal) => {
+            const endTime = Date.now();
+            if (code === 0) {
+              resolveChild(undefined);
+              resolve({
+                success: true,
+                message: "Python script executed successfully",
+                details: {
+                  scriptPath: resolvedScriptPath,
+                  command: scriptCommand,
+                  stdout: stdoutBuffer.split("\n"),
+                  stderr: stderrBuffer.split("\n"),
+                  executionTime: `${((endTime - startTime) / 60000).toFixed(2)} minutes`,
+                },
+              });
+            } else {
+              resolve({
+                success: false,
+                message: `Python exited with code=${code} signal=${signal ?? "none"}`,
+                details: {
+                  scriptPath: resolvedScriptPath,
+                  command: scriptCommand,
+                  stdout: stdoutBuffer.split("\n"),
+                  stderr: stderrBuffer.split("\n"),
+                  exitCode: code,
+                  signal: signal,
+                  executionTime: `${((endTime - startTime) / 60000).toFixed(2)} minutes`,
+                },
+              });
+              resolveChild(undefined);
+            }
+          });
         });
-      });
     } catch (error: any) {
       resolve({
         success: false,

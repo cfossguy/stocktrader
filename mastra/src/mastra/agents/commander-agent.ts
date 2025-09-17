@@ -46,7 +46,7 @@ export const commanderAgent = new Agent({
       - "What stocks do I currently own?" → Use crewaiChatTool with size: 1, semantic: false no query
       - "Run the analysis pipeline" → Use stockpickerWorkflowTool to execute the workflow
 `,
-  model: openai('gpt-4o'),
+  model: openai(process.env.LLM_MODEL_ID || 'gpt-4o'),
   memory,
   tools: { 
     crewaiChatTool,

@@ -25,6 +25,9 @@ LOCAL_DATA_DIR=[YOUR_PROJECT_ABSOLUTE_PATH]/data
 
 # hack for clearing py-yfinance-cache daily. cache is needed to keep from getting rate limited
 YAHOO_FINANCE_CACHE_DIR=[YOUR_USER_HOME_ABSOLUTE_PATH]/Library/Caches/py-yfinance-cache
+
+# used to set the model id in mastra, crewai and llm.py (FYI - gpt5 kind of works but is slower and doesn't produce better results yet)
+LLM_MODEL_ID=gpt-4o-mini
 ```
 ### Step #3 - Provision Elastic Serverless Indexes + Ray
 ```
@@ -48,6 +51,8 @@ Open: http://localhost:4111/agents then click "Commander"
 ## what stocks should i buy/sell today?
 ## do any buy candidates show up as sell in last 10 reports?
 ## can you run a semantic search for telco stocks with a good dividend yield?
+
+## Interesting experimental prompts
 
 
 

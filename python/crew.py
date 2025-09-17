@@ -6,6 +6,7 @@ from crewai.project import CrewBase, agent, crew, task
 from crewai_tools import SerperDevTool, FileReadTool
 from tools import TickerAnalyticsLookupTool, StockScreenerTool, ReportArchiveTool
 from crewai import LLM
+import sys
 
 # If you want to run a snippet of code before or after the crew starts, 
 # you can use the @before_kickoff and @after_kickoff decorators
@@ -26,20 +27,26 @@ class StockpickerAgents():
 	search_tool = SerperDevTool()
 	load_dotenv()
 	LOCAL_DATA_DIR = os.environ.get("LOCAL_DATA_DIR")
+	LLM_MODEL_ID = os.getenv("LLM_MODEL_ID")
 	stocks_owned = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/stocks_owned.csv")
 	account_details = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/account_details.csv")
 
-	screen_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/screen_report.md")
-	technical_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/technical_report.md")
-	fundamental_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/fundamental_report.md")
-	portfolio_report = FileReadTool(file_path=f"{LOCAL_DATA_DIR}/portfolio_report.md")
-	
+	screen_report = FileReadTool(file_path='crewai/screen_report.md')
+	technical_report = FileReadTool(file_path='crewai/technical_report.md')
+	fundamental_report = FileReadTool(file_path='crewai/fundamental_report.md')
+	portfolio_report = FileReadTool(file_path='crewai/portfolio_report.md')
+	etf_report = FileReadTool(file_path='crewai/etf_report.md')
+
 
 	ticker_analytics_lookup = TickerAnalyticsLookupTool()
 	stock_screener_tool = StockScreenerTool()
 	report_archive_tool = ReportArchiveTool()
 
-	agent_llm = LLM(model="openai/gpt-4o-mini", # call model by provider/model_name
+	# agent_llm = LLM(model="openai/gpt-5-mini", drop_params=True, 
+	# 			 	additional_drop_params=['max_tokens', 'stop', 'temperature'],
+	# 		  		max_completion_tokens=32000)
+	
+	agent_llm = LLM(model=f"openai/{LLM_MODEL_ID}", # call model by provider/model_name
 			  temperature=0.1, max_tokens=16384, top_p=0.9, frequency_penalty=0.1, presence_penalty=0.1, stop=["END"],seed=42)
 	
 	@agent
@@ -68,6 +75,16 @@ class StockpickerAgents():
 			tools=[self.stocks_owned, self.ticker_analytics_lookup, self.screen_report],
 			llm=self.agent_llm
 		)
+	
+	@agent
+	def etf_analyst(self) -> Agent:
+		return Agent(
+			config=self.agents_config['etf_analyst'],
+			verbose=True,
+			tools=[self.stocks_owned, self.ticker_analytics_lookup, self.screen_report],
+			llm=self.agent_llm
+		)
+	
 	
 	@agent
 	def portfolio_manager(self) -> Agent:
@@ -106,6 +123,12 @@ class StockpickerAgents():
 		)
 	
 	@task
+	def etf_analysis(self) -> Task:
+		return Task(
+			config=self.tasks_config['etf_analysis']
+		)
+	
+	@task
 	def portfolio_adjustments(self) -> Task:
 		return Task(
 			config=self.tasks_config['portfolio_adjustments'],
@@ -122,7 +145,6 @@ class StockpickerAgents():
 	def archive_report_task(self) -> Task:
 		return Task(
 			config=self.tasks_config['archive_report']
-			
 		)
 	
 	@crew
@@ -131,10 +153,14 @@ class StockpickerAgents():
 		# To learn how to add knowledge sources to your crew, check out the documentation:
 		# https://docs.crewai.com/concepts/knowledge#what-is-knowledge
 
-		return Crew(
-			agents=self.agents, # Automatically created by the @agent decorator
-			tasks=self.tasks, # Automatically created by the @task decorator
-			process=Process.sequential,
-			verbose=True,
-			# process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
-		)
+		try:
+			return Crew(
+				agents=self.agents, # Automatically created by the @agent decorator
+				tasks=self.tasks, # Automatically created by the @task decorator
+				process=Process.sequential,
+				verbose=True,
+				# process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
+			)
+		except Exception as e:
+			print(f"Exception occurred in crew creation: {e}", file=sys.stderr)
+			sys.exit(1)

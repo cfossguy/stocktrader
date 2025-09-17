@@ -7,8 +7,8 @@ import { openai as openai$2 } from '@ai-sdk/openai';
 import { Agent, MessageList } from '@mastra/core/agent';
 import { Memory as Memory$1 } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
-import { crewaiChatTool } from './tools/eada47b0-c3ee-4adf-913d-194c5fe53c89.mjs';
-import { tickerAnalyticsLookupTool } from './tools/f1d488fd-b04f-4818-8694-5d1d746657ff.mjs';
+import { crewaiChatTool } from './tools/1ce7d537-49b4-446f-b2cf-5a5431871b0b.mjs';
+import { tickerAnalyticsLookupTool } from './tools/1e1dd975-3fa8-4350-9ac3-797c7fab7175.mjs';
 import { s as stockpickerWorkflowTool, a as stockpickerWorkflow } from './stockpicker-workflow-tool.mjs';
 import crypto$1, { randomUUID } from 'crypto';
 import { readdir, readFile, mkdtemp, rm, writeFile, mkdir, copyFile, stat } from 'fs/promises';
@@ -39,7 +39,7 @@ import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { tools } from './tools.mjs';
 import 'dotenv';
 import '@elastic/elasticsearch';
-import './tools/66d71626-c3d3-4379-9327-7b4f9045dfb4.mjs';
+import './tools/a18a5d07-b214-4fe1-add3-dfd0d7f14eea.mjs';
 
 const memory = new Memory$1({
   storage: new LibSQLStore({
@@ -80,7 +80,7 @@ const commanderAgent = new Agent({
       - "What stocks do I currently own?" \u2192 Use crewaiChatTool with size: 1, semantic: false no query
       - "Run the analysis pipeline" \u2192 Use stockpickerWorkflowTool to execute the workflow
 `,
-  model: openai$2("gpt-4o"),
+  model: openai$2(process.env.LLM_MODEL_ID || "gpt-4o"),
   memory,
   tools: {
     crewaiChatTool,

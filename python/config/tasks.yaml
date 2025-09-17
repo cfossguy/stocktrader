@@ -1,0 +1,141 @@
+# =========================
+# 1) SCREEN (bounded + done)
+# =========================
+stock_screen:
+  description: >
+    Scan publicly traded companies for potential buys.
+    Focus on technical (RSI, MACD, SMA) and fundamental triggers.
+    When using the stock_screener tool, apply exactly:
+      rsi_day_gte=30, rsi_day_lte=60, macd_week_gt=0, macd_week_lt=10.
+    Perform ONE screening pass only. Do not repeat or refine the screen.
+    After the single pass, select the 10 best BUY candidates and STOP.
+  expected_output: |
+    A markdown list titled "Top 10 BUY Candidates" with exactly 10 tickers and one-line rationale each.
+    Example:
+    - TICKER: one-line rationale (max 160 chars)
+    When the list is complete and saved to file, you are done.
+  agent: stock_screener
+  output_file: crewai/screen_report.md
+
+# =========================================
+# 3) TECHNICAL REPORT (bounded aggregation)
+# =========================================
+technical_analysis:
+  description: >
+    Use stocks_owned tool once to get holdings.
+    Use screen_report tool once to get the top BUY candidates.
+    For both sets (stocks_owned + screen_report), call ticker_analytics_lookup ONCE per ticker
+    to fetch technical signals and news_rank (no retries, no loops).
+    Identify SELL candidates among holdings; identify BUY candidates among holdings and screen_report.
+    After the first complete pass across tickers, summarize and STOP.
+  expected_output: |
+    A markdown report with 3 sections:
+    ## SELL Candidates (holdings)
+    - TICKER: brief technical + news sentence
+    ## BUY Candidates (holdings)
+    - TICKER: brief technical + news sentence
+    ## BUY Candidates (screen_report)
+    - TICKER: brief technical + news sentence
+    Keep each line <= 200 chars. No further tool calls after writing the file.
+  agent: technical_analyst
+  output_file: crewai/technical_report.md
+
+# ============================================
+# 4) FUNDAMENTAL REPORT (bounded aggregation)
+# ============================================
+fundamental_analysis:
+  description: >
+    Use stocks_owned tool once for holdings.
+    Use screen_report tool once for top BUY candidates.
+    For both sets, call ticker_analytics_lookup ONCE per ticker to fetch fundamental signals
+    and news_rank (no retries, no loops).
+    Identify SELL candidates among holdings and BUY candidates across both sets.
+    Summarize and STOP after the first pass.
+  expected_output: |
+    A markdown report with 3 sections:
+    ## SELL Candidates (holdings)
+    - TICKER: brief fundamental + news sentence
+    ## BUY Candidates (holdings)
+    - TICKER: brief fundamental + news sentence
+    ## BUY Candidates (screen_report)
+    - TICKER: brief fundamental + news sentence
+    Keep each line <= 200 chars. No further tool calls after writing the file.
+  agent: fundamental_analyst
+  output_file: crewai/fundamental_report.md
+
+# ==================
+# 5) ETF ANALYTICS
+# ==================
+etf_analysis:
+  description: >
+    Analyze ETFs: JPST, QQQ, SPY, IWM.
+    For each ETF, make ONE ticker_analytics_lookup to fetch:
+      macd_rank/hour/day/week, rsi_rank/hour/day/week, sma_hour/day/week, and news_summary/news_rank.
+    Provide an overall weighting suggestion. Do not loop or revisit an ETF.
+    After one pass across all 4 ETFs, write the file and STOP.
+  expected_output: |
+    Markdown with:
+    ## Per-ETF Snapshot (4 blocks)
+    - TICKER: short tech + news summary (<= 3 bullets)
+    ## Weighting Suggestion
+    - Example: "JPST 60%, QQQ 15%, SPY 15%, IWM 10%" with a one-sentence rationale
+  agent: etf_analyst
+  output_file: crewai/etf_report.md
+
+# ===========================
+# 6) PORTFOLIO ADJUSTMENTS
+# ===========================
+portfolio_adjustments:
+  description: >
+    Use stocks_owned once.
+    Use screen_report once.
+    For each holding, call ticker_analytics_lookup once for sector/industry and any needed metrics.
+    Ensure no holding exceeds 20% of total value and that sectors are diversified.
+    Propose BUY/SELL adjustments. One pass only; then write and STOP.
+  expected_output: |
+    Markdown with:
+    ## Portfolio by Company (%)
+    - TICKER: X%
+    ## Portfolio by Sector (%)
+    - Sector: X%
+    ## Adjustments
+    - SELL: TICKER (short reason)
+    - BUY: TICKER (short reason)
+    When written, stop without further tool calls.
+  agent: portfolio_manager
+  output_file: crewai/portfolio_report.md
+
+# ===============
+# 7) FINAL REPORT
+# ===============
+final_report:
+  description: >
+    Aggregate previously written files:
+      - screen_report
+      - technical_report
+      - fundamental_report
+      - portfolio_report
+    Do not call any external tools besides the 4 report readers.
+    Compose a concise final summary and STOP after writing.
+  expected_output: |
+    A markdown summary with sections:
+    ## BUY
+    ## SELL
+    ## Portfolio by Company
+    ## Portfolio by Sector
+    ## Next Actions (3 bullets max)
+    No code fences; no new tool calls after writing.
+  agent: report_analyst
+  output_file: crewai/final_report.md
+
+# =================
+# 8) ARCHIVE REPORT
+# =================
+archive_report:
+  description: >
+    Archive final_report via report_archive_tool exactly once.
+    If it fails, retry up to 2 additional times (total 3) with a 30-second delay.
+    After a success or the 3rd failure, STOP.
+  expected_output: |
+    A single line: either "Archived: <id>" or "ArchiveFailed: <error>"
+  agent: report_analyst

@@ -7,6 +7,7 @@ import warnings
 import datetime
 import typer
 from dotenv import load_dotenv
+from crew import StockpickerAgents
 
 # Ensure src is in sys.path for stockpicker_agents import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -70,6 +71,7 @@ def test(n_iterations: int = typer.Argument(..., help="Number of iterations"), o
         StockpickerAgents().crew().test(n_iterations=n_iterations, openai_model_name=openai_model_name, inputs=inputs)
     except Exception as e:
         raise Exception(f"An error occurred while testing the crew: {e}")
+
 
 if __name__ == "__main__":
     app()

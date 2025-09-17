@@ -125,34 +125,33 @@ def get_pe(ticker):
 
 def get_news(ticker):
     polygon_client = RESTClient(api_key=POLYGON_API_KEY)
-    feed_details = str()
+    news_items = []
     try:
         now = datetime.now(timezone.utc)
-        three_months_ago = now - timedelta(days=90)
+        duration = now - timedelta(days=30)
 
         news = polygon_client.list_ticker_news(ticker=f'{ticker}', limit=100)
-        newsfeed = []
-        
+
         for n in islice(news, 100):
             date = parse(n.published_utc)
-            if date > three_months_ago:
-                description = n.description
-                title = n.title
-                summary = f"Title: {title}\nDetails: {description}\nDate: {date}\n"
-                newsfeed.append(summary)
-            
-        feed_details = '\n'.join([str(item) for item in newsfeed])
-        logger.debug(f'News for {ticker} processed and there are {len(newsfeed)} news items')
-        
-        return feed_details
+            if date > duration:
+                item = {
+                    "title": n.title if hasattr(n, 'title') else "",
+                    "details": n.description if hasattr(n, 'description') else "",
+                    "date": str(date)
+                }
+                news_items.append(item)
+
+        logger.debug(f'News for {ticker} processed and there are {len(news_items)} news items')
+        return news_items
 
     except IndexError as e:
         logger.debug(f'News for {ticker} has error - {e}. May not have data in polygon.io')
-        return feed_details
+        return news_items
     except BaseException as x:
         logger.debug(f'News for {ticker} has error - {x}. Unknown error polygon.io')
         traceback.print_exc()
-        return feed_details
+        return news_items
 
 def get_market_cap(ticker):
     try:
@@ -229,9 +228,12 @@ def get_financials(ticker):
     # will continue yielding items across pages even if `limit` is provided as
     # a per-request page size. To get a single record respect the caller's
     # intent we only consume the first item from the iterator.
-    it = polygon_client.vx.list_stock_financials(order="desc", limit="4", sort="filing_date", ticker=f"{ticker}")
+
+    # Collect up to 12 financial reports
+    report_count = 12
+    it = polygon_client.vx.list_stock_financials(order="desc", limit=report_count, sort="filing_date", ticker=f"{ticker}")
     try:
-        for _ in range(4):  # Collect up to 4 financial reports
+        for _ in range(report_count):  
             f = next(it)
             cleaned = clean_none(f)
             financials.append(cleaned)
