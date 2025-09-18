@@ -196,7 +196,7 @@ def generate_analytics_json_sp500():
         macd_week_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "macd", "week"), axis=1).tolist()
         stocks_frame['macd_week'] = ray.get(macd_week_futures)
 
-        stocks_frame['macd_rank'] = stocks_frame.apply(lambda row: market_analytics.get_rsi_rank(row['macd_hour'], row['macd_day'], row['macd_week']), axis=1)
+        stocks_frame['macd_rank'] = stocks_frame.apply(lambda row: market_analytics.get_macd_rank(row['macd_hour'], row['macd_day'], row['macd_week']), axis=1)
 
         sma_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "sma", "hour"), axis=1).tolist()
         stocks_frame['sma_hour'] = ray.get(sma_hour_futures)

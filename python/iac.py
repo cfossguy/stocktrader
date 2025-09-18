@@ -256,7 +256,7 @@ def create_stockpicker_search_template():
                 }
                 {{/semantic}}
                 {{^semantic}}
-                "_source": ["date", "screen_report", "portfolio_report", "technical_report", "fundamental_report", "final_report", "cash_position_usd", "stock_position_usd", "account_balance", "stocks_owned"],
+                "_source": ["date", "screen_report", "portfolio_report", "technical_report", "fundamental_report", "etf_report", "final_report", "cash_position_usd", "stock_position_usd", "account_balance", "stocks_owned"],
                 "query": {
                     "match_all": {}
                 },
@@ -294,6 +294,8 @@ def create_stockpicker_agent_index():
                 "technical_report_semantic": { "type": "semantic_text", "inference_id": model_id },
                 "fundamental_report": { "type": "text", "copy_to": "fundamental_report_semantic" },
                 "fundamental_report_semantic": { "type": "semantic_text", "inference_id": model_id },
+                "etf_report": { "type": "text", "copy_to": "etf_report_semantic" },
+                "etf_report_semantic": { "type": "semantic_text", "inference_id": model_id },
                 "final_report": { "type": "text", "copy_to": "final_report_semantic" },
                 "final_report_semantic": { "type": "semantic_text", "inference_id": model_id },
                 "cash_position_usd": { "type": "float" },

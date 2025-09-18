@@ -15,19 +15,27 @@ class QuickTestClient(unittest.TestCase):
     #     with open('./result.json', 'w') as f:
     #         f.write(str(result))
 
-    def test_generate_news_summary(self):
-        start = time.time()
-        news = market_analytics.get_news(ticker='T')
-        result = llm.generate_news_summary_and_rank(ticker='T', news=news)
-        duration = time.time() - start
-        print(f"News Test Result: {result}\nDuration: {duration:.3f} seconds")
+    # def test_generate_news_summary(self):
+    #     ticker = 'EG'
+    #     start = time.time()
+    #     news = market_analytics.get_news(ticker=ticker)
+    #     result = llm.generate_news_summary_and_rank(ticker=ticker, news=news)
+    #     duration = time.time() - start
+    #     print(f"News Test Result: {result}\nDuration: {duration:.3f} seconds")
 
-    def test_generate_financials(self):
+    def test_macd_rank(self):
         start = time.time()
-        financials = market_analytics.get_financials(ticker='T')
-        result = llm.generate_fundamentals_summary_and_rank(ticker='T', financials=financials)
+        rank = market_analytics.get_macd_rank(macd_day=0, macd_hour=50, macd_week=-4)
+        print (f"MACD Rank is: {rank}")
         duration = time.time() - start
-        print(f"Financials Test Result: {result}\nDuration: {duration:.3f} seconds")
+        print(f"MACD Rank Test Duration: {duration:.3f} seconds")
+
+    # def test_generate_financials(self):
+    #     start = time.time()
+    #     financials = market_analytics.get_financials(ticker='T')
+    #     result = llm.generate_fundamentals_summary_and_rank(ticker='T', financials=financials)
+    #     duration = time.time() - start
+    #     print(f"Financials Test Result: {result}\nDuration: {duration:.3f} seconds")
 
 if __name__ == '__main__':
     unittest.main()

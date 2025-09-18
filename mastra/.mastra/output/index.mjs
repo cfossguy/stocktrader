@@ -7,8 +7,8 @@ import { openai as openai$2 } from '@ai-sdk/openai';
 import { Agent, MessageList } from '@mastra/core/agent';
 import { Memory as Memory$1 } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
-import { crewaiChatTool } from './tools/1ce7d537-49b4-446f-b2cf-5a5431871b0b.mjs';
-import { tickerAnalyticsLookupTool } from './tools/1e1dd975-3fa8-4350-9ac3-797c7fab7175.mjs';
+import { crewaiChatTool } from './tools/a5ee00b4-73f3-47dd-825c-e152573acfc6.mjs';
+import { tickerAnalyticsLookupTool } from './tools/f418dc90-0ec7-4009-8217-68c8e938a35e.mjs';
 import { s as stockpickerWorkflowTool, a as stockpickerWorkflow } from './stockpicker-workflow-tool.mjs';
 import crypto$1, { randomUUID } from 'crypto';
 import { readdir, readFile, mkdtemp, rm, writeFile, mkdir, copyFile, stat } from 'fs/promises';
@@ -39,7 +39,7 @@ import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { tools } from './tools.mjs';
 import 'dotenv';
 import '@elastic/elasticsearch';
-import './tools/a18a5d07-b214-4fe1-add3-dfd0d7f14eea.mjs';
+import './tools/a2711885-d949-4361-bd0e-c673179bca10.mjs';
 
 const memory = new Memory$1({
   storage: new LibSQLStore({

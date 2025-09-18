@@ -76,12 +76,6 @@ def _try_parse_date(s: str) -> Optional[datetime]:
             return None
     return None
 
-
-def _is_relevant(ticker: str, aliases: List[str], title: str, details: str) -> bool:
-    hay = f"{title or ''}\n{details or ''}".lower()
-    tokens = [ticker.lower()] + [a.lower() for a in aliases]
-    return any(tok and tok in hay for tok in tokens)
-
 def _dedup_by_title_date(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Collapse near-duplicates by normalized title (lower/trim) + same-day date.
@@ -111,10 +105,11 @@ def preprocess_news(
     now: Optional[datetime] = None,
     max_items: int = 15,
     detail_chars: int = 360,
+    keywords: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     - Parse dates
-    - Filter to last 30 days
+    - Filter to last 90 days
     - Relevance by ticker/aliases (title/details)
     - De-duplicate
     - Truncate details
@@ -126,7 +121,7 @@ def preprocess_news(
 
     aliases = aliases or []
     now = now or datetime.now(timezone.utc)
-    min_date = now - timedelta(days=30)
+    min_date = now - timedelta(days=90)
 
     prepped = []
     for n in raw_news:
@@ -137,10 +132,6 @@ def preprocess_news(
         # Parse & window filter
         dt = _try_parse_date(date_str)
         if not dt or dt < min_date or dt > now:
-            continue
-
-        # Relevance
-        if not _is_relevant(ticker, aliases, title, details):
             continue
 
         # Truncate details (strip boilerplate-ish tails)
@@ -181,6 +172,7 @@ def generate_news_summary_and_rank(
     ticker: str,
     news: Optional[List[Dict[str, Any]]] = None,
     aliases: Optional[List[str]] = None,
+    keywords: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Faster path: A + C + D
@@ -196,12 +188,13 @@ def generate_news_summary_and_rank(
         aliases=aliases or [],
         max_items=15,
         detail_chars=360,
+        keywords=keywords,
     )
 
     # If empty after preprocessing, short-circuit with a deterministic default
     if not compact_items:
         return {
-            "summary": "No eligible news in the last 30 days. Treat older items as qualitative context only.",
+            "summary": "No eligible news in the last 90 days. Treat older items as qualitative context only.",
             "rank": 50,
         }
 
@@ -209,7 +202,7 @@ def generate_news_summary_and_rank(
         "You are a financial analysis assistant. "
         "Using only the provided items (title, date, details<=360 chars), return a concise JSON with "
         'keys {"summary": string, "rank": integer 1..100}. '
-        "Prioritize 0–14 day catalysts/risks; use 15–30 day items as context. "
+        "Prioritize 0–30 day catalysts/risks; use 31–90 day items as context. "
         "Do not invent facts or entities. If items appear repetitive, consolidate the event in the summary."
     )
 
@@ -433,12 +426,6 @@ def summarize_fundamentals(ticker: str, computed: Dict[str, Any]) -> Dict[str, A
             response_format={"type": "json_object"}
         )
 
-        # Defensive debug logging for the raw response object
-        try:
-            logger.debug(f"LLM raw resp: {resp}")
-        except Exception:
-            logger.debug("LLM raw resp: <unprintable>")
-
         # Inspect choices safely
         out = None
         try:
@@ -507,5 +494,14 @@ def summarize_fundamentals(ticker: str, computed: Dict[str, Any]) -> Dict[str, A
 def generate_fundamentals_summary_and_rank(ticker: str, financials: Optional[list]=None):
     computed = compute_scores(financials or [])
     llm_json = summarize_fundamentals(ticker, computed)
-    # You can parse llm_json["raw"] safely since it's valid JSON by contract.
-    return llm_json["raw"]
+    # Parse llm_json["raw"] and return only summary and rank
+    try:
+        parsed = json.loads(llm_json["raw"])
+        summary = parsed.get("summary", "")
+        rank = parsed.get("rank", 50)
+        logger.info(f"Fundamentals summary for {ticker}: {{'summary': {summary}, 'rank': {rank}}}")
+        return {"summary": summary, "rank": rank}
+    except Exception:
+        # Fallback: return empty summary and neutral rank
+        logger.info(f"Fundamentals summary for {ticker}: {{'summary': '', 'rank': 50}} (fallback)")
+        return {"summary": "", "rank": 50}
