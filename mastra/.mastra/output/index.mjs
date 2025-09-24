@@ -7,9 +7,12 @@ import { openai as openai$2 } from '@ai-sdk/openai';
 import { Agent, MessageList } from '@mastra/core/agent';
 import { Memory as Memory$1 } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
-import { crewaiChatTool } from './tools/a5ee00b4-73f3-47dd-825c-e152573acfc6.mjs';
-import { tickerAnalyticsLookupTool } from './tools/f418dc90-0ec7-4009-8217-68c8e938a35e.mjs';
-import { s as stockpickerWorkflowTool, a as stockpickerWorkflow } from './stockpicker-workflow-tool.mjs';
+import { crewaiChatTool } from './tools/abdfce83-091b-42a1-9fa9-d5ed95b2abac.mjs';
+import { tickerAnalyticsLookupTool } from './tools/77c97a57-ebe0-4fb4-ac47-1d30372f040f.mjs';
+import { createWorkflow, createStep } from '@mastra/core/workflows';
+import { z, ZodFirstPartyTypeKind, ZodObject } from 'zod';
+import { pythonTool } from './tools/ac921b5d-f11b-498e-a6c2-bebcdbc73a45.mjs';
+import { MCPClient } from '@mastra/mcp';
 import crypto$1, { randomUUID } from 'crypto';
 import { readdir, readFile, mkdtemp, rm, writeFile, mkdir, copyFile, stat } from 'fs/promises';
 import { join as join$1 } from 'path/posix';
@@ -21,7 +24,6 @@ import { join, resolve as resolve$3, dirname, extname, basename, isAbsolute, rel
 import { RuntimeContext } from '@mastra/core/runtime-context';
 import { Telemetry } from '@mastra/core/telemetry';
 import { createTool, isVercelTool, Tool } from '@mastra/core/tools';
-import { z, ZodFirstPartyTypeKind, ZodObject } from 'zod';
 import util, { promisify } from 'util';
 import { Buffer as Buffer$1 } from 'buffer';
 import { zodToJsonSchema as zodToJsonSchema$2 } from '@mastra/core/utils/zod-to-json';
@@ -35,11 +37,147 @@ import { ZodFirstPartyTypeKind as ZodFirstPartyTypeKind$1 } from 'zod/v3';
 import { spawn as spawn$1, execFile as execFile$1, exec as exec$1 } from 'child_process';
 import { createRequire } from 'module';
 import { tmpdir } from 'os';
-import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { tools } from './tools.mjs';
 import 'dotenv';
 import '@elastic/elasticsearch';
-import './tools/a2711885-d949-4361-bd0e-c673179bca10.mjs';
+
+const runDataPipelineStep = createStep({
+  id: "run-data-pipeline-step",
+  description: "Runs the data pipeline to gather market data",
+  inputSchema: z.object({}),
+  outputSchema: z.object({
+    pipelineSuccess: z.boolean(),
+    message: z.string(),
+    executionTime: z.string().optional()
+  }),
+  execute: async ({ runtimeContext }) => {
+    const result = await pythonTool.execute({
+      context: { scriptCommand: "run-data-pipeline" },
+      runtimeContext
+    });
+    return {
+      pipelineSuccess: result.success,
+      message: result.message,
+      executionTime: result.details?.executionTime
+    };
+  }
+});
+const runCrewAIStep = createStep({
+  id: "run-crewai-step",
+  description: "Runs the CrewAI analysis on market data",
+  inputSchema: z.object({
+    pipelineSuccess: z.boolean(),
+    message: z.string(),
+    executionTime: z.string().optional()
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+    executionTime: z.string().optional()
+  }),
+  execute: async (params) => {
+    if (!params.inputData.pipelineSuccess) {
+      return {
+        success: false,
+        message: `CrewAI execution skipped. Data pipeline failed: ${params.inputData.message}`,
+        executionTime: "0 minutes"
+      };
+    }
+    const result = await pythonTool.execute({
+      context: { scriptCommand: "run-crewai" },
+      runtimeContext: params.runtimeContext
+    });
+    return {
+      success: result.success,
+      message: result.message,
+      executionTime: result.details?.executionTime
+    };
+  }
+});
+const completionStep = createStep({
+  id: "completion-step",
+  description: "Finalizes the workflow process and handles any cleanup or notifications",
+  inputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+    executionTime: z.string().optional()
+  }),
+  outputSchema: z.object({
+    completed: z.boolean(),
+    completionMessage: z.string(),
+    completionTime: z.string()
+  }),
+  execute: async (params) => {
+    const startTime = Date.now();
+    const overallSuccess = params.inputData.success;
+    let completionMessage = `Workflow execution ${overallSuccess ? "completed successfully" : "completed with issues"}. `;
+    if (overallSuccess) {
+      completionMessage += "All reports have been generated and are ready for review.";
+    } else {
+      completionMessage += "There were issues during execution. Please check the logs for details.";
+    }
+    const completionTime = ((Date.now() - startTime) / 1e3 / 60).toFixed(2);
+    return {
+      completed: true,
+      completionMessage,
+      completionTime: `${completionTime} minutes`
+    };
+  }
+});
+const stockpickerWorkflow = createWorkflow({
+  id: "stockpicker-workflow",
+  description: "Workflow to run data pipeline and then CrewAI analysis with completion step",
+  inputSchema: z.object({}),
+  outputSchema: z.object({
+    dataPipelineSuccess: z.boolean(),
+    crewAISuccess: z.boolean(),
+    workflowCompleted: z.boolean(),
+    finalMessage: z.string(),
+    completionMessage: z.string(),
+    totalExecutionTime: z.string().optional()
+  })
+}).then(runDataPipelineStep).then(runCrewAIStep).then(completionStep).map({
+  dataPipelineSuccess: {
+    value: (outputs) => outputs["run-data-pipeline-step"].pipelineSuccess,
+    schema: z.boolean()
+  },
+  crewAISuccess: {
+    value: (outputs) => outputs["run-crewai-step"].success,
+    schema: z.boolean()
+  },
+  workflowCompleted: {
+    value: (outputs) => outputs["completion-step"].completed,
+    schema: z.boolean()
+  },
+  finalMessage: {
+    value: (outputs) => {
+      return `Data Pipeline: ${outputs["run-data-pipeline-step"].message}. CrewAI: ${outputs["run-crewai-step"].message}`;
+    },
+    schema: z.string()
+  },
+  completionMessage: {
+    value: (outputs) => outputs["completion-step"].completionMessage,
+    schema: z.string()
+  },
+  totalExecutionTime: {
+    value: (outputs) => {
+      const pipelineOutput = outputs["run-data-pipeline-step"];
+      const crewAIOutput = outputs["run-crewai-step"];
+      const completionOutput = outputs["completion-step"];
+      if (pipelineOutput.executionTime && crewAIOutput.executionTime) {
+        const pipelineTimeStr = pipelineOutput.executionTime || "0 minutes";
+        const crewAITimeStr = crewAIOutput.executionTime || "0 minutes";
+        const completionTimeStr = completionOutput.completionTime || "0 minutes";
+        const pipelineTime = parseFloat(pipelineTimeStr.split(" ")[0]) || 0;
+        const crewAITime = parseFloat(crewAITimeStr.split(" ")[0]) || 0;
+        const completionTime = parseFloat(completionTimeStr.split(" ")[0]) || 0;
+        return `${(pipelineTime + crewAITime + completionTime).toFixed(2)} minutes`;
+      }
+      return "unknown";
+    },
+    schema: z.string()
+  }
+}).commit();
 
 const memory = new Memory$1({
   storage: new LibSQLStore({
@@ -56,36 +194,42 @@ const memory = new Memory$1({
 const commanderAgent = new Agent({
   name: "Commander",
   instructions: `
-      You are an intelligent stock analysis assistant that helps users with both historical data analysis and generating new stock reports.
+  You are an intelligent stock analysis assistant. Your role is to help users with historical data analysis and generate new stock reports using the tools provided.
 
-      Your capabilities include:
-      1. **Querying Historical Data**: Use crewaiChatTool to retrieve and analyze past stock reports, portfolio information, and market analysis
-      2. **Generating New Reports**: Use stockpickerWorkflowTool to trigger the data pipeline and CrewAI analysis to create fresh stock reports
-      3. **Ticker Analytics Lookup**: Use tickerAnalyticsLookupTool to retrieve analytics data for a specific ticker symbol
+  Capabilities:
+  1. Query Historical Data: Use crewaiChatTool to retrieve and analyze past stock reports, portfolio information, and market analysis.
+  2. Generate New Reports: Use stockpickerWorkflowTool to trigger the data pipeline and CrewAI analysis for fresh stock reports.
+  3. Ticker Analytics Lookup: Use tickerAnalyticsLookupTool to retrieve analytics for a specific ticker symbol.
 
-      When responding to user requests:
-      - If the user wants historical data, recent reports, or analysis of past performance, use crewaiChatTool
-      - If the user wants to generate new reports, run fresh analysis, or update current data, use stockpickerWorkflowTool
-      - If the user wants to look up analytics for a specific ticker, use tickerAnalyticsLookupTool
-      - Always use the appropriate tool based on the user's intent
-      - Keep responses concise but informative
-      - Only use data provided by the tools - do not make assumptions or use external knowledge
-      - Only use semantic search if the user explicitly requests it
+  Guidelines:
+  - For historical data, recent reports, or past performance analysis, use crewaiChatTool.
+  - For generating new reports, running fresh analysis, or updating data, use stockpickerWorkflowTool.
+  - For analytics on a specific ticker, use tickerAnalyticsLookupTool.
+  - Always select the appropriate tool based on user intent.
+  - Keep responses concise and informative.
+  - Only use data provided by the tools; do not make assumptions or use external knowledge.
+  - Use semantic search only if the user explicitly requests it.
 
-      Example usage scenarios:
-      - "What stocks should I buy/sell today" or "Show me the latest report" \u2192 Use crewaiChatTool with size: 1, semantic: false no query
-      - "Show me the last 10 reports" \u2192 Use crewaiChatTool with size: 10, semantic: false no query
-      - "Semantic search <query>" \u2192 Use crewaiChatTool with size: 10, semantic: true, query: <query>
-      - "Generate new stock analysis" \u2192 Use stockpickerWorkflowTool to create fresh reports
-      - "What stocks do I currently own?" \u2192 Use crewaiChatTool with size: 1, semantic: false no query
-      - "Run the analysis pipeline" \u2192 Use stockpickerWorkflowTool to execute the workflow
+    Shortcut List:
+    - conflicts <TICKER>: Semantic search last 10 crewai reports, highlight conflicting buy/sell recommendations for <TICKER>.
+    - analytics <TICKER> <SIZE>: Analytics lookup on <TICKER> (size=<SIZE>).
+    - limit-buy <TICKER>: Analytics lookup on <TICKER> (size=10) -> suggest good limit buy price range.
+    - stop-limit <TICKER> <PURCHASE_PRICE> <CURRENT_PRICE>: Analytics lookup on <TICKER> (size=10) -> suggest stop limit range based on purchase/current price.
+    - short-entry <ETF> <CURRENT_PRICE>: Analytics lookup and crewai report semantic search on <ETF> (size=10) -> suggest a price that signals the ETF breached a key short term support level.
+    - run-workflow: Run stockpickerWorkflow to trigger the data pipeline and generate a new stock analysis report.
+    - latest-report: crewaiChatTool (size=1, semantic=false) for latest report or buy/sell today.
+    - last-10-reports: crewaiChatTool (size=10, semantic=false) for last 10 reports.
+    - semantic-search <QUERY>: crewaiChatTool (size=10, semantic=true, query=<QUERY>).
+    - stocks-owned: crewaiChatTool (size=1, semantic=false) for current portfolio.
 `,
   model: openai$2(process.env.LLM_MODEL_ID || "gpt-4o"),
   memory,
   tools: {
     crewaiChatTool,
-    stockpickerWorkflowTool,
     tickerAnalyticsLookupTool
+  },
+  workflows: {
+    stockpickerWorkflow
   },
   // Configure default options to use streamVNext behavior
   defaultVNextStreamOptions: {
@@ -93,9 +237,30 @@ const commanderAgent = new Agent({
   }
 });
 
+const mcp = new MCPClient({
+  servers: {
+    filesystem: {
+      command: "npx",
+      args: [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/jwilliams"
+      ]
+    }
+  }
+});
+
+const mcpAgent = new Agent({
+  name: "Agent with MCP Tools",
+  instructions: "You can use tools from connected MCP servers.",
+  model: openai$2("gpt-4o-mini"),
+  tools: await mcp.getTools()
+});
+
 const mastra = new Mastra({
   agents: {
-    commanderAgent
+    commanderAgent,
+    mcpAgent
   },
   workflows: {
     stockpickerWorkflow
@@ -676,14 +841,14 @@ var HonoRequest = class {
   #getDecodedParam(key) {
     const paramKey = this.#matchResult[0][this.routeIndex][1][key];
     const param = this.#getParamValue(paramKey);
-    return param ? /\%/.test(param) ? tryDecodeURIComponent(param) : param : void 0;
+    return param && /\%/.test(param) ? tryDecodeURIComponent(param) : param;
   }
   #getAllDecodedParams() {
     const decoded = {};
     const keys = Object.keys(this.#matchResult[0][this.routeIndex][1]);
     for (const key of keys) {
       const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key]);
-      if (value && typeof value === "string") {
+      if (value !== void 0) {
         decoded[key] = /\%/.test(value) ? tryDecodeURIComponent(value) : value;
       }
     }
@@ -2617,7 +2782,9 @@ var bodyLimit = (options) => {
     if (!c.req.raw.body) {
       return next();
     }
-    if (c.req.raw.headers.has("content-length")) {
+    const hasTransferEncoding = c.req.raw.headers.has("transfer-encoding");
+    const hasContentLength = c.req.raw.headers.has("content-length");
+    if (hasContentLength && !hasTransferEncoding) {
       const contentLength = parseInt(c.req.raw.headers.get("content-length") || "0", 10);
       return contentLength > maxSize ? onError(c) : next();
     }

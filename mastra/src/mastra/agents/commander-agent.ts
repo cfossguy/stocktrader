@@ -4,7 +4,7 @@ import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import { crewaiChatTool } from "../tools/crewai-chat-tool";
 import { tickerAnalyticsLookupTool } from "../tools/ticker-analytics-lookup-tool";
-import { stockpickerWorkflowTool } from "../tools/stockpicker-workflow-tool";
+import { stockpickerWorkflow } from "../workflows/stockpicker-workflow";
 
 export const memory = new Memory({
   storage: new LibSQLStore({
@@ -22,36 +22,42 @@ export const memory = new Memory({
 export const commanderAgent = new Agent({
   name: 'Commander',
   instructions: `
-      You are an intelligent stock analysis assistant that helps users with both historical data analysis and generating new stock reports.
+  You are an intelligent stock analysis assistant. Your role is to help users with historical data analysis and generate new stock reports using the tools provided.
 
-      Your capabilities include:
-      1. **Querying Historical Data**: Use crewaiChatTool to retrieve and analyze past stock reports, portfolio information, and market analysis
-      2. **Generating New Reports**: Use stockpickerWorkflowTool to trigger the data pipeline and CrewAI analysis to create fresh stock reports
-      3. **Ticker Analytics Lookup**: Use tickerAnalyticsLookupTool to retrieve analytics data for a specific ticker symbol
+  Capabilities:
+  1. Query Historical Data: Use crewaiChatTool to retrieve and analyze past stock reports, portfolio information, and market analysis.
+  2. Generate New Reports: Use stockpickerWorkflowTool to trigger the data pipeline and CrewAI analysis for fresh stock reports.
+  3. Ticker Analytics Lookup: Use tickerAnalyticsLookupTool to retrieve analytics for a specific ticker symbol.
 
-      When responding to user requests:
-      - If the user wants historical data, recent reports, or analysis of past performance, use crewaiChatTool
-      - If the user wants to generate new reports, run fresh analysis, or update current data, use stockpickerWorkflowTool
-      - If the user wants to look up analytics for a specific ticker, use tickerAnalyticsLookupTool
-      - Always use the appropriate tool based on the user's intent
-      - Keep responses concise but informative
-      - Only use data provided by the tools - do not make assumptions or use external knowledge
-      - Only use semantic search if the user explicitly requests it
+  Guidelines:
+  - For historical data, recent reports, or past performance analysis, use crewaiChatTool.
+  - For generating new reports, running fresh analysis, or updating data, use stockpickerWorkflowTool.
+  - For analytics on a specific ticker, use tickerAnalyticsLookupTool.
+  - Always select the appropriate tool based on user intent.
+  - Keep responses concise and informative.
+  - Only use data provided by the tools; do not make assumptions or use external knowledge.
+  - Use semantic search only if the user explicitly requests it.
 
-      Example usage scenarios:
-      - "What stocks should I buy/sell today" or "Show me the latest report" → Use crewaiChatTool with size: 1, semantic: false no query
-      - "Show me the last 10 reports" → Use crewaiChatTool with size: 10, semantic: false no query
-      - "Semantic search <query>" → Use crewaiChatTool with size: 10, semantic: true, query: <query>
-      - "Generate new stock analysis" → Use stockpickerWorkflowTool to create fresh reports
-      - "What stocks do I currently own?" → Use crewaiChatTool with size: 1, semantic: false no query
-      - "Run the analysis pipeline" → Use stockpickerWorkflowTool to execute the workflow
+    Shortcut List:
+    - conflicts <TICKER>: Semantic search last 10 crewai reports, highlight conflicting buy/sell recommendations for <TICKER>.
+    - analytics <TICKER> <SIZE>: Analytics lookup on <TICKER> (size=<SIZE>).
+    - limit-buy <TICKER>: Analytics lookup on <TICKER> (size=10) -> suggest good limit buy price range.
+    - stop-limit <TICKER> <PURCHASE_PRICE> <CURRENT_PRICE>: Analytics lookup on <TICKER> (size=10) -> suggest stop limit range based on purchase/current price.
+    - short-entry <ETF> <CURRENT_PRICE>: Analytics lookup and crewai report semantic search on <ETF> (size=10) -> suggest a price that signals the ETF breached a key short term support level.
+    - run-workflow: Run stockpickerWorkflow to trigger the data pipeline and generate a new stock analysis report.
+    - latest-report: crewaiChatTool (size=1, semantic=false) for latest report or buy/sell today.
+    - last-10-reports: crewaiChatTool (size=10, semantic=false) for last 10 reports.
+    - semantic-search <QUERY>: crewaiChatTool (size=10, semantic=true, query=<QUERY>).
+    - stocks-owned: crewaiChatTool (size=1, semantic=false) for current portfolio.
 `,
   model: openai(process.env.LLM_MODEL_ID || 'gpt-4o'),
   memory,
   tools: { 
     crewaiChatTool,
-    stockpickerWorkflowTool,
     tickerAnalyticsLookupTool
+  },
+  workflows: {
+    stockpickerWorkflow
   },
   // Configure default options to use streamVNext behavior
   defaultVNextStreamOptions: {

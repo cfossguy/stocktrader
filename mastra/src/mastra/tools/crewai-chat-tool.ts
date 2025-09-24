@@ -122,7 +122,8 @@ export const crewaiChatTool = createTool({
   inputSchema,
   outputSchema,
   execute: async (input: any) => {
-    // Pass input directly to executeCrewAIChatTool, letting zod handle defaults
-    return executeCrewAIChatTool(input);
+    // Parse and validate input with Zod to ensure defaults are applied
+    const parsedInput = inputSchema.parse(input);
+    return executeCrewAIChatTool(parsedInput);
   },
 });

@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import os
 from polygon import RESTClient
 import math
+import requests
 load_dotenv()
 
 logger = logging.getLogger("ray")
@@ -46,34 +47,6 @@ def get_triple_screen_median(ticker: str, timespan='hour', window='10', indicato
     except StatisticsError as se:
         logger.debug(f'{indicator}_{timespan} for {ticker} has error - {se}')
         return 0
-    
-# def get_rsi_rank(rsi_hour, rsi_day, rsi_week):
-#     rsi_rank = 0
-#     #rank up if rsi is less than 70
-#     if rsi_hour < 70:
-#         rsi_rank += 1
-#     if rsi_day < 70:
-#         rsi_rank += 1
-#     if rsi_week < 70:
-#         rsi_rank += 1
-#     #rank up if rsi is greater than 30
-#     if rsi_hour > 30:
-#         rsi_rank += 1
-#     if rsi_day > 30:
-#         rsi_rank += 1
-#     if rsi_week > 30:
-#         rsi_rank += 1
-#     #rank up if short crosses long
-#     if rsi_hour > rsi_day:
-#         rsi_rank += 1
-#     if rsi_day > rsi_week: 
-#         rsi_rank += 1
-#     if rsi_day < 50:
-#         rsi_rank += 1
-#     if rsi_hour < 50:
-#         rsi_rank += 1
-
-#     return rsi_rank
 
 def get_rsi_rank(
     rsi_hour: float,
@@ -211,25 +184,6 @@ def get_rsi_rank(
     # Ensure final_score is at least 0.000001
     return max(final_score, 0.000001)
 
-# def get_macd_rank(macd_hour, macd_day, macd_week):
-#     macd_rank = 0
-#     #rank up if macd is positive
-#     if macd_hour > 0:
-#         macd_rank += 1
-#     if macd_day > 0:
-#         macd_rank += 1
-#     if macd_week > 0:
-#         macd_rank += 3
-#     #rank up if macd crosses over
-#     if macd_hour > macd_day:
-#         macd_rank += 1
-#     if macd_day > macd_week:
-#         macd_rank += 1
-#     if macd_hour > macd_day and macd_day > 0 and macd_week < 0:
-#         macd_rank += 3
-    
-#     return macd_rank
-
 def _pos_strength(x: float, scale: float = 1.0) -> float:
     """
     Map MACD value to [0, 1] with diminishing returns.
@@ -280,34 +234,6 @@ def get_macd_rank(macd_hour: float, macd_day: float, macd_week: float, scale: fl
     score = max(0.000001, min(100, round(base + bonus - penalty)))
     return score
 
-def get_pe(ticker):
-    polygon_client = RESTClient(api_key=POLYGON_API_KEY)
-    pe = 0
-    try:
-        financials = polygon_client.vx.list_stock_financials(ticker=f'{ticker}')
-        eps_list = []
-
-        while len(eps_list) < 4:
-            n = next(financials)
-            end_date = n.end_date
-            basic_earnings_per_share = n.financials.income_statement.basic_earnings_per_share.value
-            eps_list.append(basic_earnings_per_share)
-            logger.debug(f'basic_earnings={basic_earnings_per_share}, end_date={end_date}')
-        previous_close = polygon_client.get_previous_close_agg(ticker=f'{ticker}')[0].close
-        yearly_eps = sum(eps_list)
-        logger.debug(f'yearly_eps={yearly_eps}, previous_close={previous_close}')
-        pe = round(previous_close / yearly_eps,2)
-        logger.debug(f'PE for {ticker} is: {pe}')
-
-        return pe
-
-    except IndexError as e:
-        logger.debug(f'PE rating for {ticker} has error - {e}. May not have 4 past quarters of financials in polygon.io')
-        return pe
-    except BaseException as x:
-        logger.debug(f'PE rating for {ticker} has error - {x}. May not have 4 past quarters of financials in polygon.io')
-        return pe
-
 def get_news(ticker):
     polygon_client = RESTClient(api_key=POLYGON_API_KEY)
     news_items = []
@@ -339,21 +265,6 @@ def get_news(ticker):
         traceback.print_exc()
         return news_items
 
-def get_market_cap(ticker):
-    try:
-        ticker = ticker.replace('.', '-')
-        ticker_data = yfc.Ticker(ticker)
-        market_cap = ticker_data.info['marketCap'] 
-        market_cap_in_billion = round(market_cap / 1000000000, 2)
-        logger.debug(f'market cap for {ticker} is: {market_cap_in_billion}')
-        return market_cap_in_billion
-    except (KeyError, TypeError) as e:
-        logger.debug(f'market cap {ticker} is: N/A because of {e.__class__.__name__}')
-        return None
-    except Exception as e:
-        logger.debug(f'market cap {ticker} is: N/A because of {e}')
-        return None
-
 def get_beta(ticker):
     try:
         time.sleep(random.uniform(1,5))  
@@ -368,62 +279,46 @@ def get_beta(ticker):
     except Exception as e:
         logger.debug(f'market cap {ticker} is: N/A because of {e}')
         return None
-
-def get_dividend_yield(ticker):
-    try:
-        ticker = ticker.replace('.', '-')
-        ticker_data = yfc.Ticker(ticker)
-        dividend_yield = round(ticker_data.info['dividendYield'],2)
-        logger.debug(f'dividend yield {ticker} is: {dividend_yield}')
-        return dividend_yield
-    except (KeyError, TypeError) as e:
-        logger.debug(f'dividend yield {ticker} is: N/A because of {e.__class__.__name__}')
-        return None
-    except Exception as e:
-        logger.debug(f'dividend yield {ticker} is: N/A because of {e}')
-        return None
     
-def get_financials(ticker):
-    polygon_client = RESTClient(api_key=POLYGON_API_KEY)
-    financials = []
-    def clean_none(obj):
-        # Recursively remove None values, empty containers, and unwanted keys from dicts and objects
-        drop_keys = {'label', 'order', 'unit', 'source_filing_url', 'source_filing_file_url'}
-        if isinstance(obj, dict):
-            cleaned = {k: clean_none(v) for k, v in obj.items() if v is not None and k not in drop_keys}
-            # Flatten dicts that only have a 'value' key
-            for k, v in list(cleaned.items()):
-                if isinstance(v, dict) and set(v.keys()) == {'value'}:
-                    cleaned[k] = v['value']
-            return {k: v for k, v in cleaned.items() if not (isinstance(v, (dict, list, tuple, set)) and not v)}
-        elif hasattr(obj, '__dict__'):
-            cleaned = {k: clean_none(v) for k, v in obj.__dict__.items() if v is not None and k not in drop_keys}
-            for k, v in list(cleaned.items()):
-                if isinstance(v, dict) and set(v.keys()) == {'value'}:
-                    cleaned[k] = v['value']
-            return {k: v for k, v in cleaned.items() if not (isinstance(v, (dict, list, tuple, set)) and not v)}
-        elif isinstance(obj, (list, tuple, set)):
-            t = type(obj)
-            cleaned = t(clean_none(v) for v in obj if v is not None)
-            # Remove empty containers
-            return t(v for v in cleaned if not (isinstance(v, (dict, list, tuple, set)) and not v))
-        else:
-            return obj
-
-    # polygon_client.vx.list_stock_financials returns a paginated iterator and
-    # will continue yielding items across pages even if `limit` is provided as
-    # a per-request page size. To get a single record respect the caller's
-    # intent we only consume the first item from the iterator.
-
-    # Collect up to 12 financial reports
-    report_count = 12
-    it = polygon_client.vx.list_stock_financials(order="desc", limit=report_count, sort="filing_date", ticker=f"{ticker}")
+def get_balance_sheets(ticker):
+    """
+    Fetches balance sheet data for a ticker using Polygon REST API.
+    Returns a list of balance sheets or None if not found/error.
+    """
+    url = f"https://api.polygon.io/stocks/financials/v1/balance-sheets?tickers={ticker}&timeframe=quarterly&limit=12&sort=period_end.desc&apiKey={POLYGON_API_KEY}"
     try:
-        for _ in range(report_count):  
-            f = next(it)
-            cleaned = clean_none(f)
-            financials.append(cleaned)
-    except StopIteration:
-        # no more financials available for this ticker
-        pass
-    return financials
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("status") == "OK" and data.get("results"):
+            return data["results"]
+        else:
+            logger.debug(f"No balance sheets found for {ticker}: {data}")
+            return None
+    except Exception as e:
+        logger.debug(f"Error fetching balance sheets for {ticker}: {e}")
+        return None
+        
+def get_ratios(ticker):
+    """
+    Fetches financial ratios for a ticker using Polygon REST API.
+    Returns a dict of ratios or None if not found/error.
+    """
+    url = f"https://api.polygon.io/stocks/financials/v1/ratios?ticker={ticker}&limit=1&sort=ticker.asc&apiKey={POLYGON_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("status") == "OK" and data.get("results"):
+            result = data["results"][0]
+            # Drop 'cik' and 'date' keys if present
+            result.pop('cik', None)
+            result.pop('date', None)
+            return result
+        else:
+            logger.debug(f"No ratios found for {ticker}: {data}")
+            return None
+    except Exception as e:
+        logger.debug(f"Error fetching ratios for {ticker}: {e}")
+        return None
+

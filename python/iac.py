@@ -31,7 +31,6 @@ def create_ticker_analytics_search_template():
             "lang": "mustache",
             "source": {
                 "size": 100,
-                "_source": ["ticker", "name", "sector", "industry", "beta", "market_cap", "dividend_yield", "rsi_hour", "rsi_day", "rsi_week", "macd_hour", "macd_day", "macd_week", "sma_hour", "pe", "macd_rank", "rsi_rank", "news_rank", "news_summary", "fundamentals_rank", "fundamentals_summary"],
                 "retriever": {
                     "linear": {
                         "rank_window_size": 1000,
@@ -152,7 +151,7 @@ def create_stockpicker_search_template():
             {
                 {{#semantic}}
                 "size": {{size}},
-                "_source": ["date"],
+                "_source": { "includes": ["date"] },
                 "retriever": {
                     "linear": {
                         "rank_window_size": 100,
@@ -256,10 +255,10 @@ def create_stockpicker_search_template():
                 }
                 {{/semantic}}
                 {{^semantic}}
-                "_source": ["date", "screen_report", "portfolio_report", "technical_report", "fundamental_report", "etf_report", "final_report", "cash_position_usd", "stock_position_usd", "account_balance", "stocks_owned"],
+                "size": {{size}},
                 "query": {
-                    "match_all": {}
-                },
+                        "match_all": {}
+                    },
                 "sort": [
                     {
                         "date": {

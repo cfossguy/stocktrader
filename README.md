@@ -54,5 +54,21 @@ Open: http://localhost:4111/agents then click "Commander"
 
 ## Interesting experimental prompts
 
+### Discrepencies and Conflicts
+TICKER=WMT
+run a semantic search on last 10 crewai reports and highlight conflicting buy/sell recommendations for {TICKER}?
+
+### Entry / Exit - Tickers
+TICKER=WMT
+run analytics lookup on {TICKER} with size=10 and provide thoughts on a good limit buy price range? 
+
+TICKER=WMT,PURCHASE_PRICE=??.??,CURRENT_PRICE=??.??
+can you run analytics lookup on {TICKER} with size=10 and provide thoughts on good stop limit range? i bought it at {PURCHASE_PRICE} and it is currently trading at {CURRENT_PRICE}.
+
+### Inverse ETFS
+ETF=QQQ,CURRENT_PRICE=598
+can you run analytics lookup and crewai report semantic search on {ETF} with size=10 and provide thoughts on a good short entry point? i want to set a conditional order that triggers once the ETF falls off it's high and is about to breach a key short term support level. it is currently trading at {CURRENT_PRICE}.
+
+
 
 

@@ -259,61 +259,60 @@ def compute_scores(financials: list[dict]) -> Dict[str, Any]:
     Compute TTM revenue, growth, margins, D/E, subscores, and overall rank locally.
     Expects minimal fields present in your payload.
     """
-    # ---- Extract last 4 periods for TTM (newest first or last agnostic) ----
-    periods = sorted(financials, key=lambda p: p.get("end_date", ""))[-4:]  # last 4 by end_date
+    # ---- Extract metrics from new ratios and balance_sheets feeds ----
+    # Use up to 4 most recent periods for TTM calculations
+    periods = sorted(financials, key=lambda p: p.get("end_date", ""))[:4]
+    # Use ratios from each period if available
     revs = []
-    op = []
-    net = []
+    op_margins = []
+    net_margins = []
+    de_ratios = []
+    eps_values = []
+    pe_values = []
+    cash_equiv_values = []
+    fcf_values = []
+    roe_values = []
+    total_liabilities_values = []
+    debt_current_values = []
     for p in periods:
-        fs = p.get("financials", {})
-        inc = fs.get("income_statement", {}) or {}
-        revs.append(inc.get("revenues"))
-        op.append(inc.get("operating_income_loss"))
-        net.append(inc.get("net_income_loss"))
+        ratios = p.get("ratios", {})
+        # Revenue: use market_cap as proxy if no direct revenue field
+        rev = ratios.get("market_cap") or p.get("market_cap")
+        revs.append(rev)
+        op_margins.append(ratios.get("return_on_assets"))
+        net_margins.append(ratios.get("return_on_equity"))
+        de_ratios.append(ratios.get("debt_to_equity"))
+        eps_values.append(ratios.get("earnings_per_share"))
+        pe_values.append(ratios.get("price_to_earnings"))
+        fcf_values.append(ratios.get("free_cash_flow"))
+        roe_values.append(ratios.get("return_on_equity"))
+        cash_equiv_values.append(p.get("cash_and_equivalents"))
+        total_liabilities_values.append(p.get("total_liabilities"))
+        debt_current_values.append(p.get("debt_current"))
 
-    def _sum_or_none(xs):
+    def _mean_or_none(xs):
         xs2 = [x for x in xs if isinstance(x, (int, float))]
-        return sum(xs2) if xs2 else None
+        return mean(xs2) if xs2 else None
 
-    ttm_rev = _sum_or_none(revs)
-    ttm_op = _sum_or_none(op)
-    ttm_net = _sum_or_none(net)
+    ttm_rev = _mean_or_none(revs)
+    op_margin = _mean_or_none(op_margins)
+    net_margin = _mean_or_none(net_margins)
+    de_proxy = _mean_or_none(de_ratios)
+    eps = _mean_or_none(eps_values)
+    pe = _mean_or_none(pe_values)
+    fcf = _mean_or_none(fcf_values)
+    cash_equiv = _mean_or_none(cash_equiv_values)
+    roe = _mean_or_none(roe_values)
+    total_liabilities = _mean_or_none(total_liabilities_values)
+    debt_current = _mean_or_none(debt_current_values)
 
-    # Build base (previous 4 periods) for TTM growth if available
-    base_periods = sorted(financials, key=lambda p: p.get("end_date", ""))[-8:-4]
-    base_ttm_rev = None
-    if len(base_periods) == 4:
-        base_revs = []
-        for p in base_periods:
-            inc = (p.get("financials", {}) or {}).get("income_statement", {}) or {}
-            base_revs.append(inc.get("revenues"))
-        base_ttm_rev = _sum_or_none(base_revs)
-
-    # Margins
-    op_margin = _safe_div(ttm_op, ttm_rev)
-    net_margin = _safe_div(ttm_net, ttm_rev)
-
-    # D/E proxy from most recent period with data
-    de_proxy = None
-    for p in sorted(financials, key=lambda p: p.get("end_date", ""), reverse=True):
-        bs = (p.get("financials", {}) or {}).get("balance_sheet", {}) or {}
-        equity = bs.get("equity")
-        long_term_debt = bs.get("long_term_debt")
-        liabilities = bs.get("liabilities")
-        if equity is None or (isinstance(equity, (int, float)) and equity <= 0):
-            continue
-        if isinstance(long_term_debt, (int, float)):
-            de_proxy = long_term_debt / equity
-            break
-        if isinstance(liabilities, (int, float)):
-            de_proxy = liabilities / equity
-            break
-
-    # ---- Scoring (integers) ----
-    # Revenue growth score
+    # Growth: compare most recent to oldest
     growth_pct = None
-    if ttm_rev is not None and base_ttm_rev not in (None, 0):
-        growth_pct = ((ttm_rev / base_ttm_rev) - 1.0) * 100.0
+    if len(revs) >= 2 and revs[0] and revs[-1]:
+        try:
+            growth_pct = ((revs[0] / revs[-1]) - 1.0) * 100.0
+        except Exception:
+            growth_pct = None
 
     def growth_to_score(g):
         if g is None: return 50
@@ -327,9 +326,8 @@ def compute_scores(financials: list[dict]) -> Dict[str, Any]:
 
     revenue_growth_score = int(growth_to_score(growth_pct))
 
-    # Profitability score
-    def op_score(m):
-        if m is None: return None
+    def margin_score(m):
+        if m is None: return 50
         m *= 100
         if m <= 0:  return 35
         if m <= 5:  return 55
@@ -337,17 +335,7 @@ def compute_scores(financials: list[dict]) -> Dict[str, Any]:
         if m <= 20: return 80
         return 90
 
-    def net_score(m):
-        if m is None: return None
-        m *= 100
-        if m <= 0:  return 30
-        if m <= 5:  return 55
-        if m <= 10: return 70
-        if m <= 20: return 80
-        return 90
-
-    subs = [s for s in (op_score(op_margin), net_score(net_margin)) if s is not None]
-    profitability_score = int(round(mean(subs))) if subs else 50
+    profitability_score = int(round(margin_score(op_margin) * 0.5 + margin_score(net_margin) * 0.5))
 
     # Debt score
     if de_proxy is None:
@@ -366,11 +354,17 @@ def compute_scores(financials: list[dict]) -> Dict[str, Any]:
     return {
         "metrics": {
             "ttm_revenue": ttm_rev,
-            "base_ttm_revenue": base_ttm_rev,
             "growth_percent": None if growth_pct is None else int(round(growth_pct)),
             "operating_margin_percent": None if op_margin is None else int(round(op_margin*100)),
             "net_margin_percent": None if net_margin is None else int(round(net_margin*100)),
             "de_proxy": None if de_proxy is None else float(de_proxy),
+            "earnings_per_share": eps,
+            "price_to_earnings": pe,
+            "free_cash_flow": fcf,
+            "cash_and_equivalents": cash_equiv,
+            "return_on_equity": roe,
+            "total_liabilities": total_liabilities,
+            "debt_current": debt_current,
         },
         "scores": {
             "revenue_growth_score": revenue_growth_score,
@@ -491,10 +485,56 @@ def summarize_fundamentals(ticker: str, computed: Dict[str, Any]) -> Dict[str, A
         }
         return {"raw": json.dumps(fallback, ensure_ascii=False)}
 
-def generate_fundamentals_summary_and_rank(ticker: str, financials: Optional[list]=None):
-    computed = compute_scores(financials or [])
+def generate_fundamentals_summary_and_rank(ticker: str, ratios=None, balance_sheets=None):
+    """
+    Refactored to handle new ratios and balance_sheets formats from Polygon API.
+    Merges and normalizes the data for scoring and summary.
+    """
+    def normalize_ratios(ratios):
+        # Accepts dict or list; returns dict of latest ratios
+        if isinstance(ratios, dict):
+            return ratios
+        if isinstance(ratios, list) and ratios:
+            return ratios[0]
+        return {}
+
+    def normalize_balance_sheets(balance_sheets):
+        # Accepts list; returns sorted list by period_end (desc)
+        if isinstance(balance_sheets, list):
+            return sorted(balance_sheets, key=lambda x: x.get("period_end", ""), reverse=True)
+        return []
+
+    ratios_data = normalize_ratios(ratios)
+    balance_data = normalize_balance_sheets(balance_sheets)
+
+    # Compose financials for scoring: merge ratios into latest balance sheet
+    financials = []
+    for bs in balance_data:
+        merged = dict(bs)
+        merged["ratios"] = ratios_data
+        # For compatibility with compute_scores, nest under 'financials'
+        merged["financials"] = {
+            "income_statement": {
+                "revenues": bs.get("total_assets"),  # Placeholder: replace with actual revenue if available
+                # Add more fields if needed
+            },
+            "balance_sheet": {
+                "equity": bs.get("total_equity"),
+                "long_term_debt": bs.get("long_term_debt_and_capital_lease_obligations"),
+                "liabilities": bs.get("total_liabilities"),
+            },
+            "ratios": ratios_data
+        }
+        merged["end_date"] = bs.get("period_end")
+        financials.append(merged)
+
+    # If no balance data, fallback to ratios only
+    if not financials and ratios_data:
+        merged = {"ratios": ratios_data, "financials": {"ratios": ratios_data}, "end_date": ratios_data.get("date", "")}
+        financials.append(merged)
+
+    computed = compute_scores(financials)
     llm_json = summarize_fundamentals(ticker, computed)
-    # Parse llm_json["raw"] and return only summary and rank
     try:
         parsed = json.loads(llm_json["raw"])
         summary = parsed.get("summary", "")
@@ -502,6 +542,5 @@ def generate_fundamentals_summary_and_rank(ticker: str, financials: Optional[lis
         logger.info(f"Fundamentals summary for {ticker}: {{'summary': {summary}, 'rank': {rank}}}")
         return {"summary": summary, "rank": rank}
     except Exception:
-        # Fallback: return empty summary and neutral rank
         logger.info(f"Fundamentals summary for {ticker}: {{'summary': '', 'rank': 50}} (fallback)")
         return {"summary": "", "rank": 50}

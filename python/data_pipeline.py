@@ -36,14 +36,14 @@ if None in [ELASTIC_SEARCH_URL, ES_API_KEY, POLYGON_API_KEY, OPENAI_API_KEY]:
 
 def logging_setup_func():
     logger = logging.getLogger("ray")
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     logger.handlers.clear()
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s -- %(message)s')
     stream_handler = logging.StreamHandler(stream=sys.stdout)  # Use sys.stdout instead of default sys.stderr
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    logger.propagate = False
+    logger.propagate = True
 
 logger = logging.getLogger("ray")
 logging_setup_func()
@@ -69,12 +69,13 @@ def clear_yfinance_cache():
     else:
         logger.debug(f"Cache directory does not exist: {YAHOO_FINANCE_CACHE_DIR}")
 
-def add_stock_record(stocks_frame, ticker, name, sector, industry):
+def add_stock_record(stocks_frame, ticker, name, sector, industry, category):
     new_record = pd.DataFrame([{
         'ticker': ticker,
         'name': name,
         'sector': sector,
-        'industry': industry
+        'industry': industry,
+        'category': category
     }])
     stocks_frame = pd.concat([stocks_frame, new_record], ignore_index=True)
     logger.debug(f"Added new stock record: {new_record.to_dict(orient='records')[0]}")
@@ -82,12 +83,13 @@ def add_stock_record(stocks_frame, ticker, name, sector, industry):
 
 def add_etf_list(stocks_frame):
     # add ETFs that should be included in the list
-    stocks_frame = add_stock_record(stocks_frame, 'VIX', 'CBOE Market Volitility', 'VIX', 'VIX')
-    stocks_frame = add_stock_record(stocks_frame, 'JPST', 'JPMorgan Ultra-Short Income ETF', 'Bond Fund', 'Conservative')
-    stocks_frame = add_stock_record(stocks_frame, 'QQQ', 'Tech Sector ETF', 'Technology', 'Technology')
-    stocks_frame = add_stock_record(stocks_frame, 'SPY', 'SP500 ETF', 'SP500', 'SP500')
-    stocks_frame = add_stock_record(stocks_frame, 'IWM', 'iShares Russell 2000 ETF', 'Broad Market', 'Moderate Risk')
-   
+    category = 'ETF'
+    stocks_frame = add_stock_record(stocks_frame, 'VIX', 'CBOE Market Volitility', 'VIX', 'VIX', category)
+    stocks_frame = add_stock_record(stocks_frame, 'JPST', 'JPMorgan Ultra-Short Income ETF', 'Bond Fund', 'Conservative', category)
+    stocks_frame = add_stock_record(stocks_frame, 'QQQ', 'Tech Sector ETF', 'Technology', 'Technology', category)
+    stocks_frame = add_stock_record(stocks_frame, 'SPY', 'SP500 ETF', 'SP500', 'SP500', category)
+    stocks_frame = add_stock_record(stocks_frame, 'IWM', 'iShares Russell 2000 ETF', 'Broad Market', 'Moderate Risk', category)
+
     return stocks_frame
 
 def fetch_sp500_list():
@@ -102,11 +104,13 @@ def fetch_sp500_list():
     stocks_frame = tables[0]  # The first table on the page is the S&P 500 list
     stocks_frame = stocks_frame.rename(columns={'Symbol': 'ticker', 'Security': 'name', 'GICS Sector': 'sector', 'GICS Sub-Industry': 'industry', 'Date added':'added_to_sp500_ts', 'CIK': 'cik'})
     stocks_frame = stocks_frame.drop(columns=['Founded','Headquarters Location', 'added_to_sp500_ts', 'cik'])
+
     logger.info("S&P 500 list fetched from wikipedia")
 
     if use_small_dataset:
         stocks_frame = stocks_frame.head(3)
 
+    stocks_frame['category'] = 'SP500'
     return stocks_frame
     
 @ray.remote
@@ -118,40 +122,31 @@ def get_beta_remote(ticker):
     return market_analytics.get_beta(ticker)
 
 @ray.remote
-def get_market_cap_remote(ticker):
-   return market_analytics.get_market_cap(ticker)
-
-@ray.remote
-def get_dividend_yield_remote(ticker):
-    return market_analytics.get_dividend_yield(ticker)
-
-@ray.remote
-def get_pe_remote(ticker):
-    return market_analytics.get_pe(ticker=ticker)
+def get_ratios_remote(ticker):
+    return market_analytics.get_ratios(ticker)
 
 @ray.remote
 def get_news_remote(ticker):
     return market_analytics.get_news(ticker)
 
 @ray.remote
-def get_financials_remote(ticker):
-    return market_analytics.get_financials(ticker)
+def get_balance_sheets_remote(ticker):
+    return market_analytics.get_balance_sheets(ticker)
 
 @ray.remote
-def generate_fundamentals_summary_and_rank_remote(ticker, fundamentals):
-    return llm.generate_fundamentals_summary_and_rank(ticker, fundamentals)
+def generate_fundamentals_summary_and_rank_remote(ticker, ratios, balance_sheets):
+    return llm.generate_fundamentals_summary_and_rank(ticker, ratios, balance_sheets)
 
 @ray.remote
 def generate_news_summary_and_rank_remote(ticker, news):
     return llm.generate_news_summary_and_rank(ticker, news)
 
 @ray.remote(num_cpus=12)
-def generate_analytics_json_sp500():
+def generate_analytics_json_etf():
     data_dir = LOCAL_DATA_DIR
     ticker_analytics_datafile = f'{data_dir}/ticker_analytics.jsonl'
     stocks_frame = None
     try:
-        stocks_frame = fetch_sp500_list()
         stocks_frame = add_etf_list(stocks_frame)
     except Exception as e:
         logger.error("An exception occurred web scraping from wikipedia", exc_info=True)
@@ -161,21 +156,11 @@ def generate_analytics_json_sp500():
         logger.info("Adding columns from yahoo finance service")
         beta_futures = stocks_frame.apply(lambda row: get_beta_remote.remote(row.ticker.strip()), axis=1).tolist()
         stocks_frame['beta'] = ray.get(beta_futures)
-
-        # fundamentals
-        market_cap_futures = stocks_frame.apply(lambda row: get_market_cap_remote.remote(row.ticker.strip()), axis=1).tolist()
-        stocks_frame['market_cap'] = ray.get(market_cap_futures)
-        logger.info("market_cap column added for all tickers")
-
-        dividend_yield_futures = stocks_frame.apply(lambda row: get_dividend_yield_remote.remote(row.ticker.strip()), axis=1).tolist()
-        stocks_frame['dividend_yield'] = ray.get(dividend_yield_futures)
-        logger.info("dividend_yield column added for all tickers")
-        logger.info("yahoo finance service columns added for all tickers")
-    except:
-        logger.error("An exception occurred processing yahoo finance data", exc_info=True)
+    except Exception as e:
+        logger.error("An exception occurred getting beta from yahoo for", exc_info=True)
 
     try:
-        logger.info("Adding columns from polygon service")
+        logger.info("Adding technical columns from polygon service - RSI, MACD, SMA")
         rsi_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "rsi", "hour"), axis=1).tolist()
         stocks_frame['rsi_hour'] = ray.get(rsi_hour_futures)
 
@@ -201,11 +186,101 @@ def generate_analytics_json_sp500():
         sma_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "sma", "hour"), axis=1).tolist()
         stocks_frame['sma_hour'] = ray.get(sma_hour_futures)
 
-        pe_futures = stocks_frame.apply(lambda row: get_pe_remote.remote(row.ticker.strip()), axis=1).tolist()
-        stocks_frame['pe'] = ray.get(pe_futures)
-        logger.info("pe column added for all tickers")
+        logger.info("polygon service columns added technical columns from polygon service - RSI, MACD, SMA for all tickers")
+    except:
+        logger.error("An exception occurred processing polygon data", exc_info=True)
 
-        logger.info("polygon service columns added for all tickers")
+    try:
+        logger.info("Adding GPT-4 news summaries and ranks")
+        news_summary_and_rank_futures = stocks_frame.apply(
+            lambda row: generate_news_summary_and_rank_remote.remote(
+                ticker=row.ticker.strip(), 
+                news=get_news_remote.remote(ticker=row.ticker.strip())
+            ), 
+            axis=1
+        ).tolist()
+
+        news_summary_and_rank_results = ray.get(news_summary_and_rank_futures)
+
+        # Extract 'summary' and add to the DataFrame
+        stocks_frame['news_summary'] = [result['summary'] for result in news_summary_and_rank_results]
+
+        # Add 'news_rank' only if the result is not None
+        stocks_frame['news_rank'] = [result['rank'] if result['rank'] is not None else None for result in news_summary_and_rank_results]
+
+        logger.info("GPT-4 news summaries and ranks added for all tickers")
+    except Exception as e: 
+        logger.error("An exception occurred generating news sentiment", exc_info=True)
+
+    try:
+        stocks_frame.to_json(ticker_analytics_datafile, orient='records', lines=True, mode='a')
+    except:
+        logger.error("An exception occurred writing data to jsonl", exc_info=True)
+
+
+@ray.remote(num_cpus=12)
+def generate_analytics_json_sp500():
+    data_dir = LOCAL_DATA_DIR
+    ticker_analytics_datafile = f'{data_dir}/ticker_analytics.jsonl'
+    stocks_frame = None
+    try:
+        stocks_frame = fetch_sp500_list()
+    except Exception as e:
+        logger.error("An exception occurred web scraping from wikipedia", exc_info=True)
+        return None
+    
+    try:
+        logger.info("Adding columns from yahoo finance service")
+        beta_futures = stocks_frame.apply(lambda row: get_beta_remote.remote(row.ticker.strip()), axis=1).tolist()
+        stocks_frame['beta'] = ray.get(beta_futures)
+    except Exception as e:
+        logger.error("An exception occurred getting beta from yahoo for", exc_info=True)
+
+    try:
+        # fundamentals
+        ratios_futures = stocks_frame.apply(lambda row: get_ratios_remote.remote(row.ticker.strip()), axis=1).tolist()
+        ratios_results = ray.get(ratios_futures)
+
+        # List of columns to add from ratios
+        ratio_keys = [
+            "price", "average_volume", "market_cap", "earnings_per_share", "price_to_earnings", "price_to_book", "price_to_sales", "price_to_cash_flow", "price_to_free_cash_flow", "dividend_yield", "return_on_assets", "return_on_equity", "debt_to_equity", "current", "quick", "cash", "ev_to_sales", "ev_to_ebitda", "enterprise_value", "free_cash_flow"
+        ]
+        # Add each column to stocks_frame
+        for key in ratio_keys:
+            stocks_frame[key] = [r.get(key) if r else None for r in ratios_results]
+
+        logger.info("ratios columns added for all tickers")
+    except Exception as e:
+        logger.error("An exception occurred getting ratios from polygon", exc_info=True)
+
+    try:
+        logger.info("Adding technical columns from polygon service - RSI, MACD, SMA")
+        rsi_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "rsi", "hour"), axis=1).tolist()
+        stocks_frame['rsi_hour'] = ray.get(rsi_hour_futures)
+
+        rsi_day_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "rsi", "day"), axis=1).tolist()
+        stocks_frame['rsi_day'] = ray.get(rsi_day_futures)
+
+        rsi_week_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "rsi", "week"), axis=1).tolist()
+        stocks_frame['rsi_week'] = ray.get(rsi_week_futures)
+
+        stocks_frame['rsi_rank'] = stocks_frame.apply(lambda row: market_analytics.get_rsi_rank(row['rsi_hour'], row['rsi_day'], row['rsi_week']), axis=1)
+        
+        macd_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "macd", "hour"), axis=1).tolist()
+        stocks_frame['macd_hour'] = ray.get(macd_hour_futures)
+
+        macd_day_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "macd", "day"), axis=1).tolist()
+        stocks_frame['macd_day'] = ray.get(macd_day_futures)
+
+        macd_week_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "macd", "week"), axis=1).tolist()
+        stocks_frame['macd_week'] = ray.get(macd_week_futures)
+
+        stocks_frame['macd_rank'] = stocks_frame.apply(lambda row: market_analytics.get_macd_rank(row['macd_hour'], row['macd_day'], row['macd_week']), axis=1)
+
+        sma_hour_futures = stocks_frame.apply(lambda row: get_triple_screen_median_remote.remote(row.ticker.strip(), "sma", "hour"), axis=1).tolist()
+        stocks_frame['sma_hour'] = ray.get(sma_hour_futures)
+
+        logger.info("polygon service columns added technical columns from polygon service - RSI, MACD, SMA for all tickers")
     except:
         logger.error("An exception occurred processing polygon data", exc_info=True)
 
@@ -236,7 +311,8 @@ def generate_analytics_json_sp500():
         fundamentals_summary_and_rank_futures = stocks_frame.apply(
             lambda row: generate_fundamentals_summary_and_rank_remote.remote(
                 ticker=row.ticker.strip(), 
-                fundamentals=get_financials_remote.remote(ticker=row.ticker.strip())
+                balance_sheets=get_balance_sheets_remote.remote(ticker=row.ticker.strip()),
+                ratios=get_ratios_remote.remote(ticker=row.ticker.strip())
             ), 
             axis=1
         ).tolist()
@@ -254,7 +330,7 @@ def generate_analytics_json_sp500():
         logger.error("An exception occurred generating fundamentals sentiment", exc_info=True)
 
     try:
-        stocks_frame.to_json(ticker_analytics_datafile, orient='records', lines=True)
+        stocks_frame.to_json(ticker_analytics_datafile, orient='records', lines=True, mode='a')
     except:
         logger.error("An exception occurred writing data to jsonl", exc_info=True)
 
@@ -286,6 +362,17 @@ def insert_jsonl_to_elastic(index_name: str):
 @app.command()
 def clear_cache():
     clear_yfinance_cache()
+    # Delete ticker_analytics_datafile after clearing yfinance cache
+    data_dir = os.getenv('LOCAL_DATA_DIR')
+    ticker_analytics_datafile = f'{data_dir}/ticker_analytics.jsonl'
+    if os.path.exists(ticker_analytics_datafile):
+        try:
+            os.remove(ticker_analytics_datafile)
+            logger.info(f"Deleted data file: {ticker_analytics_datafile}")
+        except Exception as e:
+            logger.error(f"Failed to delete data file: {ticker_analytics_datafile}", exc_info=True)
+    else:
+        logger.info(f"Data file does not exist: {ticker_analytics_datafile}")
     
 
 @app.command()
@@ -327,9 +414,10 @@ def run_data_pipeline():
     },"worker_process_setup_hook": logging_setup_func},
     log_to_driver=True)
     
-    clear_yfinance_cache()
+    clear_cache()
 
     ray.get(generate_analytics_json_sp500.remote())
+    ray.get(generate_analytics_json_etf.remote())
     insert_jsonl_to_elastic("ticker_analytics")
     stop_ray()
     

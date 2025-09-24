@@ -23,19 +23,21 @@ class QuickTestClient(unittest.TestCase):
     #     duration = time.time() - start
     #     print(f"News Test Result: {result}\nDuration: {duration:.3f} seconds")
 
-    def test_macd_rank(self):
-        start = time.time()
-        rank = market_analytics.get_macd_rank(macd_day=0, macd_hour=50, macd_week=-4)
-        print (f"MACD Rank is: {rank}")
-        duration = time.time() - start
-        print(f"MACD Rank Test Duration: {duration:.3f} seconds")
-
-    # def test_generate_financials(self):
+    # def test_macd_rank(self):
     #     start = time.time()
-    #     financials = market_analytics.get_financials(ticker='T')
-    #     result = llm.generate_fundamentals_summary_and_rank(ticker='T', financials=financials)
+    #     rank = market_analytics.get_macd_rank(macd_day=0, macd_hour=50, macd_week=-4)
+    #     print (f"MACD Rank is: {rank}")
     #     duration = time.time() - start
-    #     print(f"Financials Test Result: {result}\nDuration: {duration:.3f} seconds")
+    #     print(f"MACD Rank Test Duration: {duration:.3f} seconds")
+
+    def test_generate_fundamentals(self):
+        start = time.time()
+        ticker = 'NVDA'
+        ratios = market_analytics.get_ratios(ticker=ticker)
+        balance_sheets = market_analytics.get_balance_sheets(ticker=ticker)
+        result = llm.generate_fundamentals_summary_and_rank(ticker=ticker, ratios=ratios, balance_sheets=balance_sheets)
+        duration = time.time() - start
+        print(f"Fundamental Test Result: {result}\nDuration: {duration:.3f} seconds")
 
 if __name__ == '__main__':
     unittest.main()
