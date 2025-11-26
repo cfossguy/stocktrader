@@ -52,6 +52,11 @@ def create_ticker_analytics_search_template():
                                                 "lt": "{{macd_week_lt}}"
                                             }
                                         }
+                                    },
+                                    {
+                                        "term": {
+                                            "timestamp": "{{timestamp}}"
+                                        }
                                     }
                                 ]
                             }
@@ -60,50 +65,42 @@ def create_ticker_analytics_search_template():
                             {
                                 "retriever": {
                                     "standard": {
-                                        "query": {
-                                            "rank_feature": {
-                                                "field": "rsi_rank"
-                                            }
+                                    "query": {
+                                        "bool": {
+                                        "should": [
+                                            { "rank_feature": { "field": "rsi_rank",  "saturation": { "pivot": 50 } } },
+                                            { "rank_feature": { "field": "macd_rank", "saturation": { "pivot": 50 } } }
+                                        ],
+                                        "minimum_should_match": 1
                                         }
                                     }
+                                    }
                                 },
-                                "weight": 0.3
+                                "weight": 3.0
                             },
                             {
                                 "retriever": {
                                     "standard": {
-                                        "query": {
-                                            "rank_feature": {
-                                                "field": "macd_rank"
-                                            }
+                                    "query": {
+                                        "bool": {
+                                            "should": [
+                                                { "rank_feature": { "field": "news_rank", "sigmoid": { "pivot": 50, "exponent": 0.6 } } }
+                                            ]
                                         }
                                     }
+                                    }
                                 },
-                                "weight": 0.3
+                                "weight": 2.0
                             },
                             {
                                 "retriever": {
                                     "standard": {
-                                        "query": {
-                                            "rank_feature": {
-                                                "field": "news_rank"
-                                            }
-                                        }
+                                    "query": {
+                                        "rank_feature": { "field": "fundamentals_rank", "log": { "scaling_factor": 2.0 } }
+                                    }
                                     }
                                 },
-                                "weight": 0.1
-                            },
-                            {
-                                "retriever": {
-                                    "standard": {
-                                        "query": {
-                                            "rank_feature": {
-                                                "field": "fundamentals_rank"
-                                            }
-                                        }
-                                    }
-                                },
-                                "weight": 0.3
+                                "weight": 1.0
                             }
                         ]
                     }
@@ -111,6 +108,9 @@ def create_ticker_analytics_search_template():
             }
         }
     }
+    # Index the script template
+    response = es_client.put_script(id='ticker_analytics_template', body=script_template)
+    print(f"ELASTICSEARCH: Create ticker_analytics_template: {response}")
 
 @catch_exceptions
 def create_ticker_analytics_search_by_ticker_template():

@@ -6,7 +6,8 @@ stock_screen:
     Scan publicly traded companies for potential buys.
     Focus on technical (RSI, MACD, SMA) and fundamental triggers.
     When using the stock_screener tool, apply exactly:
-      rsi_day_gte=30, rsi_day_lte=60, macd_week_gt=0, macd_week_lt=10.
+      rsi_day_gt=30, rsi_day_lt=60, macd_week_gt=0, macd_week_lt=10.
+    Do not provide timestamp parameter - it will automatically use today's date.
     Perform ONE screening pass only. Do not repeat or refine the screen.
     After the single pass, select the 10 best BUY candidates and STOP.
   expected_output: |

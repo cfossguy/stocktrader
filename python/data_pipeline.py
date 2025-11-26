@@ -101,11 +101,32 @@ def fetch_sp500_list():
     response.raise_for_status()
     content = response.content
     tables = pd.read_html(content)
-    stocks_frame = tables[0]  # The first table on the page is the S&P 500 list
-    stocks_frame = stocks_frame.rename(columns={'Symbol': 'ticker', 'Security': 'name', 'GICS Sector': 'sector', 'GICS Sub-Industry': 'industry', 'Date added':'added_to_sp500_ts', 'CIK': 'cik'})
-    stocks_frame = stocks_frame.drop(columns=['Founded','Headquarters Location', 'added_to_sp500_ts', 'cik'])
+    
+    # The S&P 500 component stocks table is the second table (index 1)
+    stocks_frame = tables[1]
+    
+    # Rename columns to match expected schema
+    stocks_frame = stocks_frame.rename(columns={
+        'Symbol': 'ticker', 
+        'Security': 'name', 
+        'GICS Sector': 'sector', 
+        'GICS Sub-Industry': 'industry'
+    })
+    
+    # Drop columns we don't need
+    columns_to_drop = []
+    for col in ['Founded', 'Headquarters Location', 'Date added', 'CIK']:
+        if col in stocks_frame.columns:
+            columns_to_drop.append(col)
+    
+    if columns_to_drop:
+        stocks_frame = stocks_frame.drop(columns=columns_to_drop)
+    
+    # Keep only the columns we need
+    required_columns = ['ticker', 'name', 'sector', 'industry']
+    stocks_frame = stocks_frame[required_columns]
 
-    logger.info("S&P 500 list fetched from wikipedia")
+    logger.info(f"S&P 500 list fetched from Wikipedia - {len(stocks_frame)} stocks")
 
     if use_small_dataset:
         stocks_frame = stocks_frame.head(3)
@@ -374,6 +395,9 @@ def clear_cache():
     else:
         logger.info(f"Data file does not exist: {ticker_analytics_datafile}")
     
+@app.command()
+def test():
+    fetch_sp500_list()
 
 @app.command()
 def elastic_bulk_load():
